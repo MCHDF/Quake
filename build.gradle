@@ -8,8 +8,8 @@ group 'moe.mchdf'
 version '1.0.0'
 
 shadowJar {
-    archiveFileName = "OneShot-MCHDF.jar"
-    println "Version : 'MCHDF'"
+    archiveFileName = "OneShot-1.0.0.jar"
+    println "Version : '1.0.0'"
 }
 
 repositories {
