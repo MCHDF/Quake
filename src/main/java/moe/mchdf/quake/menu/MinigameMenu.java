@@ -18,6 +18,7 @@ import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -168,6 +169,14 @@ public final class MinigameMenu implements Listener {
             countdownTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
                 secondsRemaining--;
                 showCountdown();
+                if (secondsRemaining > 0 && secondsRemaining <= 5) {
+                    for (UUID playerId : waitingPlayers) {
+                        Player player = Bukkit.getPlayer(playerId);
+                        if (player != null) {
+                            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.0f);
+                        }
+                    }
+                }
                 if (secondsRemaining == 0) {
                     countdownTask.cancel();
                     countdownTask = null;
@@ -198,7 +207,7 @@ public final class MinigameMenu implements Listener {
     private void showCountdown() {
         waitingBar.name(Component.text("게임을 시작합니다! | 시작까지 " + secondsRemaining + "초"));
         waitingBar.progress(secondsRemaining / (float) COUNTDOWN_SECONDS);
-        waitingBar.color(BossBar.Color.YELLOW);
+        waitingBar.color(secondsRemaining <= 10 ? BossBar.Color.RED : BossBar.Color.YELLOW);
     }
 
     private void cancelCountdown() {
