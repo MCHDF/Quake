@@ -1,0 +1,6 @@
+name: Quake
+version: '${version}'
+
+main: moe.mchdf.quake.Quake
+api-version: '26.3'
+load: POSTWORLD
