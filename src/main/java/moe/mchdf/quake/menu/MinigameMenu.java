@@ -35,15 +35,18 @@ import org.bukkit.scheduler.BukkitTask;
 public final class MinigameMenu implements Listener {
     private static final int MIN_PLAYERS = 2;
     private static final int COUNTDOWN_SECONDS = 30;
+    private static final int GAME_SECONDS = 180;
     private final JavaPlugin plugin;
     private final NamespacedKey bookKey;
-    // Waiting registrations last until the player disconnects or the plugin stops.
+    // During a game, this set contains only the players who joined before it started.
     private final Set<UUID> waitingPlayers = new HashSet<>();
     private final BossBar waitingBar = BossBar.bossBar(
             Component.text("게임 시작 최소 인원 0 / " + MIN_PLAYERS), 0,
             BossBar.Color.GREEN, BossBar.Overlay.PROGRESS);
     private BukkitTask countdownTask;
-    // -1 means waiting for participants; 0 means the display-only countdown finished.
+    private BukkitTask gameTask;
+    private int gameSecondsRemaining;
+    // -1 means waiting for participants.
     private int secondsRemaining = -1;
 
     public MinigameMenu(JavaPlugin plugin) {
@@ -120,7 +123,8 @@ public final class MinigameMenu implements Listener {
                 .base(DialogBase.builder(Component.text("Quake 미니게임", NamedTextColor.GOLD))
                         .canCloseWithEscape(true)
                         .body(List.of(DialogBody.plainMessage(Component.text(
-                                waiting ? "현재 참여 대기 중입니다." : "참여 버튼을 눌러 미니게임 대기 명단에 등록하세요.",
+                                gameTask != null ? (waiting ? "현재 게임에 참여 중입니다." : "게임이 진행 중입니다. 종료 후 참여해 주세요.")
+                                        : waiting ? "현재 참여 대기 중입니다." : "참여 버튼을 눌러 미니게임 대기 명단에 등록하세요.",
                                 NamedTextColor.WHITE, TextDecoration.BOLD))))
                         .build())
                 .type(DialogType.multiAction(List.of(
@@ -148,6 +152,10 @@ public final class MinigameMenu implements Listener {
                     return;
                 }
                 if (joining) {
+                    if (gameTask != null) {
+                        player.sendMessage(Component.text("게임이 진행 중입니다. 종료 후 참여해 주세요.", NamedTextColor.YELLOW));
+                        return;
+                    }
                     boolean added = waitingPlayers.add(ownerId);
                     if (added) {
                         updateAfterJoin();
@@ -181,6 +189,7 @@ public final class MinigameMenu implements Listener {
                 if (secondsRemaining == 0) {
                     countdownTask.cancel();
                     countdownTask = null;
+                    startGame();
                 }
             }, 20L, 20L);
         } else if (secondsRemaining == -1) {
@@ -193,6 +202,12 @@ public final class MinigameMenu implements Listener {
             return false;
         }
         player.hideBossBar(waitingBar);
+        if (gameTask != null) {
+            if (waitingPlayers.isEmpty()) {
+                finishGame();
+            }
+            return true;
+        }
         // Any participant leaving resets the countdown, even if the minimum is still met.
         cancelCountdown();
         showPlayerCount();
@@ -211,6 +226,39 @@ public final class MinigameMenu implements Listener {
         waitingBar.color(secondsRemaining <= 10 ? BossBar.Color.RED : BossBar.Color.YELLOW);
     }
 
+    private void startGame() {
+        gameSecondsRemaining = GAME_SECONDS;
+        showGameTimer();
+        gameTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            gameSecondsRemaining--;
+            showGameTimer();
+            if (gameSecondsRemaining == 0) {
+                finishGame();
+            }
+        }, 20L, 20L);
+    }
+
+    private void showGameTimer() {
+        waitingBar.name(Component.text("게임 진행 중 | 남은 시간 " + gameSecondsRemaining + "초"));
+        waitingBar.progress(gameSecondsRemaining / (float) GAME_SECONDS);
+        waitingBar.color(BossBar.Color.BLUE);
+    }
+
+    private void finishGame() {
+        gameTask.cancel();
+        gameTask = null;
+        for (UUID playerId : waitingPlayers) {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player != null) {
+                player.hideBossBar(waitingBar);
+                player.sendMessage(Component.text("게임이 종료되었습니다.", NamedTextColor.GOLD));
+            }
+        }
+        waitingPlayers.clear();
+        secondsRemaining = -1;
+        showPlayerCount();
+    }
+
     private void cancelCountdown() {
         if (countdownTask != null) {
             countdownTask.cancel();
@@ -221,6 +269,10 @@ public final class MinigameMenu implements Listener {
 
     public void shutdown() {
         cancelCountdown();
+        if (gameTask != null) {
+            gameTask.cancel();
+            gameTask = null;
+        }
         for (UUID playerId : waitingPlayers) {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
