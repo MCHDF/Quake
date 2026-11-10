@@ -9,10 +9,11 @@ import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class Quake extends JavaPlugin {
+    private MinigameMenu menu;
 
     @Override
     public void onEnable() {
-        MinigameMenu menu = new MinigameMenu(this);
+        menu = new MinigameMenu(this);
         var command = Objects.requireNonNull(getCommand("quake"), "quake command is missing from plugin.yml");
         QuakeCommand executor = new QuakeCommand(menu);
         command.setExecutor(executor);
@@ -27,6 +28,9 @@ public final class Quake extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (menu != null) {
+            menu.shutdown();
+        }
         // Plugin shutdown logic
         getSLF4JLogger().info("<red>MCHDF Quake 플러그인 비활성화</red>");
         getComponentLogger().info(
