@@ -27,8 +27,23 @@ public final class QuakeCommand implements TabExecutor {
             player.sendMessage(Component.text("OP만 사용할 수 있는 명령어입니다.", NamedTextColor.RED));
             return true;
         }
+        if (args.length == 2 && args[0].equalsIgnoreCase("setTimer")) {
+            int seconds;
+            try {
+                seconds = Integer.parseInt(args[1]);
+                if (seconds <= 0) {
+                    throw new NumberFormatException();
+                }
+            } catch (NumberFormatException exception) {
+                player.sendMessage(Component.text("시간은 1~2147483647 사이의 정수(초)로 입력해 주세요.", NamedTextColor.RED));
+                return true;
+            }
+            menu.setGameDurationSeconds(seconds);
+            player.sendMessage(Component.text("게임 시간을 " + seconds + "초로 설정했습니다. 다음 게임부터 적용됩니다.", NamedTextColor.GREEN));
+            return true;
+        }
         if (args.length != 2 || !args[0].equalsIgnoreCase("get") || !args[1].equalsIgnoreCase("book")) {
-            player.sendMessage(Component.text("사용법: /quake get book", NamedTextColor.YELLOW));
+            player.sendMessage(Component.text("사용법: /quake get book 또는 /quake setTimer <seconds>", NamedTextColor.YELLOW));
             return true;
         }
         menu.giveMenuBook(player, true);
@@ -40,8 +55,13 @@ public final class QuakeCommand implements TabExecutor {
         if (!(sender instanceof Player) || !sender.isOp()) {
             return List.of();
         }
-        if (args.length == 1 && "get".startsWith(args[0].toLowerCase(Locale.ROOT))) {
-            return List.of("get");
+        if (args.length == 1) {
+            return List.of("get", "setTimer").stream()
+                    .filter(option -> option.toLowerCase(Locale.ROOT).startsWith(args[0].toLowerCase(Locale.ROOT)))
+                    .toList();
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("setTimer")) {
+            return List.of("180").stream().filter(option -> option.startsWith(args[1])).toList();
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("get")
                 && "book".startsWith(args[1].toLowerCase(Locale.ROOT))) {

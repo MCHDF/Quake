@@ -45,6 +45,8 @@ public final class MinigameMenu implements Listener {
             BossBar.Color.GREEN, BossBar.Overlay.PROGRESS);
     private BukkitTask countdownTask;
     private BukkitTask gameTask;
+    private int gameDurationSeconds;
+    private int activeGameDurationSeconds;
     private int gameSecondsRemaining;
     // -1 means waiting for participants.
     private int secondsRemaining = -1;
@@ -52,6 +54,16 @@ public final class MinigameMenu implements Listener {
     public MinigameMenu(JavaPlugin plugin) {
         this.plugin = plugin;
         this.bookKey = new NamespacedKey(plugin, "minigame_menu_book");
+        this.gameDurationSeconds = Math.max(1, plugin.getConfig().getInt("game-timer-seconds", GAME_SECONDS));
+    }
+
+    public void setGameDurationSeconds(int seconds) {
+        if (seconds <= 0) {
+            throw new IllegalArgumentException("Game duration must be positive");
+        }
+        plugin.getConfig().set("game-timer-seconds", seconds);
+        plugin.saveConfig();
+        gameDurationSeconds = seconds;
     }
 
     public void giveMenuBook(Player player) {
@@ -227,7 +239,8 @@ public final class MinigameMenu implements Listener {
     }
 
     private void startGame() {
-        gameSecondsRemaining = GAME_SECONDS;
+        activeGameDurationSeconds = gameDurationSeconds;
+        gameSecondsRemaining = activeGameDurationSeconds;
         showGameTimer();
         gameTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             gameSecondsRemaining--;
@@ -240,7 +253,7 @@ public final class MinigameMenu implements Listener {
 
     private void showGameTimer() {
         waitingBar.name(Component.text("게임 진행 중 | 남은 시간 " + gameSecondsRemaining + "초"));
-        waitingBar.progress(gameSecondsRemaining / (float) GAME_SECONDS);
+        waitingBar.progress(gameSecondsRemaining / (float) activeGameDurationSeconds);
         waitingBar.color(BossBar.Color.BLUE);
     }
 
