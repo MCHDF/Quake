@@ -16,6 +16,17 @@ Paper 서버용 미니게임 플러그인입니다. 현재 참여 메뉴와 시�
 - 일반 유저의 메뉴 책 드롭 제한
 - OP 전용 `/quake get book` 명령어로 책 재지급
 - OP 전용 `/quake setTimer <seconds>` 명령어로 게임 시간 설정 (기본 180초, 양의 정수). 다음 게임부터 적용되며 서버 재시작 후에도 유지됩니다.
+- 게임 시작 시 RED/BLUE 팀 무작위 균등 배정 (최소 1:1, 홀수 인원은 한 명 차이). 상대 팀의 머리 위 닉네임을 숨기고 종료·퇴장 시 기존 스코어보드를 복원합니다.
+
+## 코드 구조
+
+- `menu/MinigameMenu`: 참여 Dialog 화면과 버튼 처리
+- `menu/MenuBook`: 메뉴 책 생성·지급·식별
+- `listener/PlayerListener`: 접속·퇴장·책 사용·드롭 이벤트 연결
+- `game/GameSession`: 참여 명단, 카운트다운, 게임 타이머, 보스바, 종료 처리
+- `game/GameTeams`: 팀 배정, 상대 팀 닉네임 숨김, 스코어보드 복원
+- `command/QuakeCommand`: 관리자 명령어 처리
+- `Quake`: 구성 요소 생성과 등록, 종료 시 정리
 
 ## 빌드 및 실행
 

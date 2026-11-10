@@ -2,7 +2,8 @@ package moe.mchdf.quake.command;
 
 import java.util.List;
 import java.util.Locale;
-import moe.mchdf.quake.menu.MinigameMenu;
+import moe.mchdf.quake.game.GameSession;
+import moe.mchdf.quake.menu.MenuBook;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.Command;
@@ -11,10 +12,12 @@ import org.bukkit.command.TabExecutor;
 import org.bukkit.entity.Player;
 
 public final class QuakeCommand implements TabExecutor {
-    private final MinigameMenu menu;
+    private final MenuBook book;
+    private final GameSession game;
 
-    public QuakeCommand(MinigameMenu menu) {
-        this.menu = menu;
+    public QuakeCommand(MenuBook book, GameSession game) {
+        this.book = book;
+        this.game = game;
     }
 
     @Override
@@ -38,7 +41,7 @@ public final class QuakeCommand implements TabExecutor {
                 player.sendMessage(Component.text("시간은 1~2147483647 사이의 정수(초)로 입력해 주세요.", NamedTextColor.RED));
                 return true;
             }
-            menu.setGameDurationSeconds(seconds);
+            game.setGameDurationSeconds(seconds);
             player.sendMessage(Component.text("게임 시간을 " + seconds + "초로 설정했습니다. 다음 게임부터 적용됩니다.", NamedTextColor.GREEN));
             return true;
         }
@@ -46,7 +49,7 @@ public final class QuakeCommand implements TabExecutor {
             player.sendMessage(Component.text("사용법: /quake get book 또는 /quake setTimer <seconds>", NamedTextColor.YELLOW));
             return true;
         }
-        menu.giveMenuBook(player, true);
+        book.giveMenuBook(player, true);
         return true;
     }
 
