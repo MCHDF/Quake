@@ -169,11 +169,12 @@ public final class MinigameMenu implements Listener {
             countdownTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
                 secondsRemaining--;
                 showCountdown();
-                if (secondsRemaining > 0 && secondsRemaining <= 5) {
+                if (secondsRemaining >= 0 && secondsRemaining <= 5) {
+                    float pitch = secondsRemaining == 0 ? 2.0f : 1.0f;
                     for (UUID playerId : waitingPlayers) {
                         Player player = Bukkit.getPlayer(playerId);
                         if (player != null) {
-                            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.0f);
+                            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, pitch);
                         }
                     }
                 }
