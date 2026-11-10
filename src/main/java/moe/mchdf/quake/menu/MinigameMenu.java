@@ -21,6 +21,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -40,25 +41,45 @@ public final class MinigameMenu implements Listener {
     }
 
     public void giveMenuBook(Player player) {
+        giveMenuBook(player, false);
+    }
+
+    public void giveMenuBook(Player player, boolean notify) {
         for (ItemStack item : player.getInventory().getContents()) {
             if (isMenuBook(item)) {
+                if (notify) {
+                    player.sendMessage(Component.text("이미 미니게임 메뉴 책을 가지고 있습니다.", NamedTextColor.YELLOW));
+                }
                 return;
             }
         }
         int slot = player.getInventory().firstEmpty();
         if (slot == -1) {
-            player.sendMessage(Component.text("미니게임 책을 받을 공간이 없습니다. 인벤토리를 비우고 재접속해 주세요.", NamedTextColor.YELLOW));
+            player.sendMessage(Component.text(notify
+                    ? "미니게임 책을 받을 공간이 없습니다. 인벤토리를 비우고 명령어를 다시 실행해 주세요."
+                    : "미니게임 책을 받을 공간이 없습니다. 인벤토리를 비우고 재접속해 주세요.", NamedTextColor.YELLOW));
             return;
         }
         ItemStack book = item(Material.BOOK, "미니게임 메뉴", NamedTextColor.GOLD,
                 "우클릭하여 미니게임 참여 메뉴를 엽니다.");
         book.editMeta(meta -> meta.getPersistentDataContainer().set(bookKey, PersistentDataType.BYTE, (byte) 1));
         player.getInventory().setItem(slot, book);
+        if (notify) {
+            player.sendMessage(Component.text("미니게임 메뉴 책을 지급했습니다.", NamedTextColor.GREEN));
+        }
     }
 
     private boolean isMenuBook(ItemStack item) {
         return item != null && item.getType() == Material.BOOK
                 && item.getPersistentDataContainer().has(bookKey, PersistentDataType.BYTE);
+    }
+
+    @EventHandler
+    public void onDrop(PlayerDropItemEvent event) {
+        if (!event.getPlayer().isOp() && isMenuBook(event.getItemDrop().getItemStack())) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage(Component.text("미니게임 메뉴 책은 버릴 수 없습니다.", NamedTextColor.RED));
+        }
     }
 
     @EventHandler

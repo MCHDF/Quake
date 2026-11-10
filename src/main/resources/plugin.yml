@@ -4,3 +4,15 @@ version: '${version}'
 main: moe.mchdf.quake.Quake
 api-version: '26.3'
 load: POSTWORLD
+
+commands:
+  quake:
+    description: Quake 미니게임 관리 명령어
+    usage: /quake get book
+    permission: quake.command
+    permission-message: OP만 사용할 수 있는 명령어입니다.
+
+permissions:
+  quake.command:
+    description: Quake 관리 명령어 사용 권한
+    default: op

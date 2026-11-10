@@ -1,5 +1,7 @@
 package moe.mchdf.quake;
 
+import java.util.Objects;
+import moe.mchdf.quake.command.QuakeCommand;
 import moe.mchdf.quake.menu.MinigameMenu;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -11,6 +13,10 @@ public final class Quake extends JavaPlugin {
     @Override
     public void onEnable() {
         MinigameMenu menu = new MinigameMenu(this);
+        var command = Objects.requireNonNull(getCommand("quake"), "quake command is missing from plugin.yml");
+        QuakeCommand executor = new QuakeCommand(menu);
+        command.setExecutor(executor);
+        command.setTabCompleter(executor);
         getServer().getPluginManager().registerEvents(menu, this);
         getServer().getOnlinePlayers().forEach(menu::giveMenuBook);
         // Plugin startup logic
