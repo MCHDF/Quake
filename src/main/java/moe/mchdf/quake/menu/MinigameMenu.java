@@ -197,8 +197,7 @@ public final class MinigameMenu implements Listener {
 
     private void showCountdown() {
         waitingBar.name(Component.text("게임을 시작합니다! | 시작까지 " + secondsRemaining + "초"));
-        // The bar represents participant count, not elapsed time.
-        waitingBar.progress(1.0f);
+        waitingBar.progress(secondsRemaining / (float) COUNTDOWN_SECONDS);
         waitingBar.color(BossBar.Color.YELLOW);
     }
 
