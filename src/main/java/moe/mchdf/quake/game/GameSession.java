@@ -3,6 +3,7 @@ package moe.mchdf.quake.game;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import moe.mchdf.quake.item.RailGunItem;
 import moe.mchdf.quake.menu.MenuBook;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -134,6 +135,7 @@ public final class GameSession {
             if (player != null) {
                 player.closeInventory();
                 book.removeMenuBooks(player);
+                player.getInventory().addItem(RailGunItem.create());
             }
         }
         // Capture the duration so configuration changes apply only to the next game.

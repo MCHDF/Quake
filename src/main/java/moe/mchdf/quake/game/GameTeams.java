@@ -94,7 +94,8 @@ final class GameTeams {
                 .appendNewline()
                 .append(Component.text("RED", NamedTextColor.RED))
                 .append(Component.text(" vs ", NamedTextColor.GRAY))
-                .append(Component.text("BLUE", NamedTextColor.BLUE));
+                .append(Component.text("BLUE", NamedTextColor.BLUE))
+                .appendNewline();
 
         for (String entry : scoreboard.getEntries()) {
             Player player = Bukkit.getPlayerExact(entry);
@@ -111,8 +112,10 @@ final class GameTeams {
                     .append(Component.text("BLUE ", NamedTextColor.BLUE))
                     .append(Component.text(String.valueOf(blueTotal), NamedTextColor.WHITE))
                     .appendNewline()
+                    .appendNewline()
                     .append(Component.text("내 팀: ", NamedTextColor.GRAY))
-                    .append(Component.text(playerTeam.getName(), playerTeam.color()));
+                    .append(Component.text(playerTeam.getName(), playerTeam.color()))
+                    .appendNewline();
             player.sendPlayerListHeaderAndFooter(header, footer);
         }
     }

@@ -6,6 +6,7 @@ import moe.mchdf.quake.game.GameSession;
 import moe.mchdf.quake.listener.PlayerListener;
 import moe.mchdf.quake.menu.MenuBook;
 import moe.mchdf.quake.menu.MinigameMenu;
+import moe.mchdf.quake.weapon.RailGunListener;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -24,6 +25,7 @@ public final class Quake extends JavaPlugin {
         command.setExecutor(executor);
         command.setTabCompleter(executor);
         getServer().getPluginManager().registerEvents(new PlayerListener(book, menu, game), this);
+        getServer().getPluginManager().registerEvents(new RailGunListener(), this);
         getServer().getOnlinePlayers().forEach(book::giveMenuBook);
         // Plugin startup logic
         getComponentLogger().info(
