@@ -49,6 +49,10 @@ public final class QuakeCommand implements TabExecutor {
             player.sendMessage(Component.text("사용법: /quake get book 또는 /quake setTimer <seconds>", NamedTextColor.YELLOW));
             return true;
         }
+        if (game.isRunning() && game.contains(player)) {
+            player.sendMessage(Component.text("게임 참여 중에는 메뉴 책을 받을 수 없습니다.", NamedTextColor.RED));
+            return true;
+        }
         book.giveMenuBook(player, true);
         return true;
     }

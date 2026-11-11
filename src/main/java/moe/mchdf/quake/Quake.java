@@ -16,8 +16,8 @@ public final class Quake extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        game = new GameSession(this);
         MenuBook book = new MenuBook(this);
+        game = new GameSession(this, book);
         MinigameMenu menu = new MinigameMenu(this, game);
         var command = Objects.requireNonNull(getCommand("quake"), "quake command is missing from plugin.yml");
         QuakeCommand executor = new QuakeCommand(book, game);

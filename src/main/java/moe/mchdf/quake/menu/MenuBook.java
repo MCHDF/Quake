@@ -47,6 +47,18 @@ public final class MenuBook {
         }
     }
 
+    public void removeMenuBooks(Player player) {
+        var inventory = player.getInventory();
+        for (int slot = 0; slot < inventory.getSize(); slot++) {
+            if (isMenuBook(inventory.getItem(slot))) {
+                inventory.setItem(slot, null);
+            }
+        }
+        if (isMenuBook(player.getItemOnCursor())) {
+            player.setItemOnCursor(null);
+        }
+    }
+
     public boolean isMenuBook(ItemStack item) {
         return item != null && item.getType() == Material.BOOK
                 && item.getPersistentDataContainer().has(bookKey, PersistentDataType.BYTE);

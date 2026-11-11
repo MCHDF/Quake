@@ -3,106 +3,108 @@ package moe.mchdf.quake.game;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
-import net.kyori.adventure.bossbar.BossBar;
+import moe.mchdf.quake.menu.MenuBook;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
-import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitTask;
 
 public final class GameSession {
-    private static final int MIN_PLAYERS = 2;
-    private static final int COUNTDOWN_SECONDS = 30;
-    private static final int GAME_SECONDS = 180;
-    private final JavaPlugin plugin;
+    private final MenuBook book;
     // During a game, this set contains only the players who joined before it started.
-    private final Set<UUID> waitingPlayers = new HashSet<>();
+    private final Set<UUID> participants = new HashSet<>();
+    private final Set<UUID> nextGameQueue = new HashSet<>();
     private final GameTeams gameTeams = new GameTeams();
-    private final BossBar waitingBar = BossBar.bossBar(
-            Component.text("게임 시작 최소 인원 0 / " + MIN_PLAYERS), 0,
-            BossBar.Color.GREEN, BossBar.Overlay.PROGRESS);
-    private BukkitTask countdownTask;
-    private BukkitTask gameTask;
-    private int gameDurationSeconds;
-    private int activeGameDurationSeconds;
-    private int gameSecondsRemaining;
-    // -1 means waiting for participants.
-    private int secondsRemaining = -1;
+    private final GameDisplay display = new GameDisplay();
+    private final GameTimer timer;
+    private final GameSettings settings;
+    private GameState state = GameState.WAITING;
 
-    public GameSession(JavaPlugin plugin) {
-        this.plugin = plugin;
-        gameDurationSeconds = Math.max(1, plugin.getConfig().getInt("game-timer-seconds", GAME_SECONDS));
+    public GameSession(JavaPlugin plugin, MenuBook book) {
+        this.book = book;
+        timer = new GameTimer(plugin);
+        settings = new GameSettings(plugin);
+        showPlayerCount();
+    }
+
+    public GameState getState() {
+        return state;
     }
 
     public boolean isRunning() {
-        return gameTask != null;
+        return state == GameState.RUNNING;
     }
 
     public boolean contains(Player player) {
-        return waitingPlayers.contains(player.getUniqueId());
+        return participants.contains(player.getUniqueId());
+    }
+
+    public boolean isQueued(Player player) {
+        return nextGameQueue.contains(player.getUniqueId());
     }
 
     public void join(Player player) {
         if (isRunning()) {
-            player.sendMessage(Component.text("게임이 진행 중입니다. 종료 후 참여해 주세요.", NamedTextColor.YELLOW));
+            if (contains(player)) {
+                player.sendMessage(Component.text("이미 현재 게임에 참여 중입니다.", NamedTextColor.YELLOW));
+                return;
+            }
+            boolean added = nextGameQueue.add(player.getUniqueId());
+            player.sendMessage(Component.text(added
+                    ? "다음 게임 대기열에 등록했습니다. 현재 게임 종료 후 자동으로 참여합니다."
+                    : "이미 다음 게임 대기열에 등록되어 있습니다.", NamedTextColor.GREEN));
             return;
         }
-        boolean added = waitingPlayers.add(player.getUniqueId());
+        boolean added = participants.add(player.getUniqueId());
         if (added) {
             updateAfterJoin();
-            player.showBossBar(waitingBar);
+            display.show(player);
         }
         player.sendMessage(Component.text(added ? "미니게임 참여 대기 명단에 등록했습니다." : "이미 참여 대기 중입니다.", NamedTextColor.GREEN, TextDecoration.BOLD));
     }
 
     public void setGameDurationSeconds(int seconds) {
-        if (seconds <= 0) {
-            throw new IllegalArgumentException("Game duration must be positive");
-        }
-        plugin.getConfig().set("game-timer-seconds", seconds);
-        plugin.saveConfig();
-        gameDurationSeconds = seconds;
+        settings.setDurationSeconds(seconds);
     }
 
     private void updateAfterJoin() {
-        if (waitingPlayers.size() >= MIN_PLAYERS && secondsRemaining == -1) {
-            secondsRemaining = COUNTDOWN_SECONDS;
-            showCountdown();
-            countdownTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-                secondsRemaining--;
-                showCountdown();
-                if (secondsRemaining >= 0 && secondsRemaining <= 5) {
-                    float pitch = secondsRemaining == 0 ? 2.0f : 1.0f;
-                    for (UUID playerId : waitingPlayers) {
-                        Player player = Bukkit.getPlayer(playerId);
-                        if (player != null) {
-                            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, pitch);
-                        }
-                    }
-                }
-                if (secondsRemaining == 0) {
-                    countdownTask.cancel();
-                    countdownTask = null;
-                    startGame();
-                }
-            }, 20L, 20L);
-        } else if (secondsRemaining == -1) {
+        if (state != GameState.WAITING) {
+            return;
+        }
+        if (participants.size() >= GameSettings.MIN_PLAYERS) {
+            state = GameState.COUNTDOWN;
+            timer.start(GameSettings.COUNTDOWN_SECONDS,
+                    remaining -> display.countdown(remaining, GameSettings.COUNTDOWN_SECONDS, participants),
+                    this::startGame);
+        } else {
             showPlayerCount();
         }
     }
 
+    public void requestLeave(Player player) {
+        if (isRunning() && contains(player)) {
+            player.sendMessage(Component.text("게임 진행 중에는 참여를 취소할 수 없습니다.", NamedTextColor.RED));
+            return;
+        }
+        boolean removed = leave(player);
+        player.sendMessage(Component.text(removed ? "미니게임 참여를 취소했습니다." : "참여 대기 중이 아닙니다.", NamedTextColor.YELLOW, TextDecoration.BOLD));
+    }
+
+    // Also used for actual disconnections, which must still remove the participant.
     public boolean leave(Player player) {
-        if (!waitingPlayers.remove(player.getUniqueId())) {
+        if (nextGameQueue.remove(player.getUniqueId())) {
+            return true;
+        }
+        if (!participants.remove(player.getUniqueId())) {
             return false;
         }
-        player.hideBossBar(waitingBar);
-        if (gameTask != null) {
+        display.hide(player);
+        if (state == GameState.RUNNING) {
             gameTeams.remove(player);
-            if (waitingPlayers.isEmpty()) {
-                finishGame();
+            if (participants.size() <= 1) {
+                finishGame(true);
             }
             return true;
         }
@@ -113,74 +115,85 @@ public final class GameSession {
     }
 
     private void showPlayerCount() {
-        waitingBar.name(Component.text("게임 시작 최소 인원 " + waitingPlayers.size() + " / " + MIN_PLAYERS));
-        waitingBar.progress(Math.min(1.0f, waitingPlayers.size() / (float) MIN_PLAYERS));
-        waitingBar.color(BossBar.Color.GREEN);
-    }
-
-    private void showCountdown() {
-        waitingBar.name(Component.text("게임을 시작합니다! | 시작까지 " + secondsRemaining + "초"));
-        waitingBar.progress(secondsRemaining / (float) COUNTDOWN_SECONDS);
-        waitingBar.color(secondsRemaining <= 10 ? BossBar.Color.RED : BossBar.Color.YELLOW);
+        display.waiting(participants.size(), GameSettings.MIN_PLAYERS);
     }
 
     private void startGame() {
-        gameTeams.assign(waitingPlayers);
-        activeGameDurationSeconds = gameDurationSeconds;
-        gameSecondsRemaining = activeGameDurationSeconds;
-        showGameTimer();
-        gameTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            gameSecondsRemaining--;
-            showGameTimer();
-            if (gameSecondsRemaining == 0) {
-                finishGame();
-            }
-        }, 20L, 20L);
-    }
-
-    private void showGameTimer() {
-        waitingBar.name(Component.text("게임 진행 중 | 남은 시간 " + gameSecondsRemaining + "초"));
-        waitingBar.progress(gameSecondsRemaining / (float) activeGameDurationSeconds);
-        waitingBar.color(BossBar.Color.BLUE);
-    }
-
-    private void finishGame() {
-        gameTask.cancel();
-        gameTask = null;
-        gameTeams.clear();
-        for (UUID playerId : waitingPlayers) {
+        gameTeams.assign(participants);
+        state = GameState.RUNNING;
+        for (UUID playerId : participants) {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
-                player.hideBossBar(waitingBar);
-                player.sendMessage(Component.text("게임이 종료되었습니다.", NamedTextColor.GOLD));
+                player.closeInventory();
+                book.removeMenuBooks(player);
             }
         }
-        waitingPlayers.clear();
-        secondsRemaining = -1;
+        // Capture the duration so configuration changes apply only to the next game.
+        int duration = settings.durationSeconds();
+        timer.start(duration, remaining -> display.running(remaining, duration),
+                () -> finishGame(false));
+    }
+
+    private void finishGame(boolean cancelled) {
+        timer.cancel();
+        gameTeams.clear();
+        for (UUID playerId : participants) {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player != null) {
+                display.hide(player);
+                player.sendMessage(Component.text(cancelled
+                        ? "참여 인원 부족으로 게임이 취소되었습니다."
+                        : "게임이 종료되었습니다.", NamedTextColor.GOLD));
+                book.giveMenuBook(player);
+                if (cancelled && player.isOnline()) {
+                    nextGameQueue.add(playerId);
+                }
+            }
+        }
+        participants.clear();
+        state = GameState.WAITING;
         showPlayerCount();
+        promoteQueue(cancelled);
+    }
+
+    private void promoteQueue(boolean previousGameCancelled) {
+        // Move all online applicants before deciding whether to start the countdown.
+        for (UUID playerId : nextGameQueue) {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player != null && player.isOnline()) {
+                participants.add(playerId);
+                player.sendMessage(Component.text(previousGameCancelled
+                        ? "이전 게임이 인원 부족으로 취소되어 다음 게임에 자동 참여했습니다."
+                        : "이전 게임이 종료되어 다음 게임에 자동 참여했습니다.", NamedTextColor.GREEN));
+            }
+        }
+        nextGameQueue.clear();
+        updateAfterJoin();
+        for (UUID playerId : participants) {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player != null) {
+                display.show(player);
+            }
+        }
     }
 
     private void cancelCountdown() {
-        if (countdownTask != null) {
-            countdownTask.cancel();
-            countdownTask = null;
-        }
-        secondsRemaining = -1;
+        timer.cancel();
+        state = GameState.WAITING;
     }
 
     public void shutdown() {
-        cancelCountdown();
+        timer.cancel();
+        state = GameState.WAITING;
         gameTeams.clear();
-        if (gameTask != null) {
-            gameTask.cancel();
-            gameTask = null;
-        }
-        for (UUID playerId : waitingPlayers) {
+        for (UUID playerId : participants) {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
-                player.hideBossBar(waitingBar);
+                display.hide(player);
+                book.giveMenuBook(player);
             }
         }
-        waitingPlayers.clear();
+        participants.clear();
+        nextGameQueue.clear();
     }
 }

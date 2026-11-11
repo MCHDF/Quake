@@ -27,21 +27,32 @@ public final class MinigameMenu {
     }
 
     public void open(Player player) {
+        if (game.isRunning() && game.contains(player)) {
+            player.sendMessage(Component.text("게임 진행 중에는 참여 메뉴를 사용할 수 없습니다.", NamedTextColor.YELLOW));
+            return;
+        }
         UUID playerId = player.getUniqueId();
         boolean waiting = game.contains(player);
+        boolean queued = game.isQueued(player);
+        boolean running = game.isRunning();
+        String description = running
+                ? (queued ? "다음 게임 대기 중입니다. 현재 게임 종료 후 자동으로 참여합니다."
+                          : "게임이 진행 중입니다. 다음 게임 대기열에 등록할 수 있습니다.")
+                : (waiting ? "현재 참여 대기 중입니다." : "참여 버튼을 눌러 미니게임 대기 명단에 등록하세요.");
+        String joinLabel = running ? (queued ? "다음 게임 대기 중" : "다음 게임 참여")
+                : (waiting ? "참여 대기 중" : "참여하기");
         Dialog dialog = Dialog.create(builder -> builder.empty()
                 .base(DialogBase.builder(Component.text("Quake 미니게임", NamedTextColor.GOLD))
                         .canCloseWithEscape(true)
                         .body(List.of(DialogBody.plainMessage(Component.text(
-                                game.isRunning() ? (waiting ? "현재 게임에 참여 중입니다." : "게임이 진행 중입니다. 종료 후 참여해 주세요.")
-                                        : waiting ? "현재 참여 대기 중입니다." : "참여 버튼을 눌러 미니게임 대기 명단에 등록하세요.",
+                                description,
                                 NamedTextColor.WHITE, TextDecoration.BOLD))))
                         .build())
                 .type(DialogType.multiAction(List.of(
-                        ActionButton.builder(Component.text(waiting ? "참여 대기 중" : "참여하기", NamedTextColor.GREEN, TextDecoration.BOLD))
+                        ActionButton.builder(Component.text(joinLabel, NamedTextColor.GREEN, TextDecoration.BOLD))
                                 .action(participationAction(playerId, true))
                                 .build(),
-                        ActionButton.builder(Component.text("참여 취소", NamedTextColor.RED, TextDecoration.BOLD))
+                        ActionButton.builder(Component.text(running ? "대기열 취소" : "참여 취소", NamedTextColor.RED, TextDecoration.BOLD))
                                 .action(participationAction(playerId, false))
                                 .build()))
                         .columns(2)
@@ -64,8 +75,7 @@ public final class MinigameMenu {
                 if (joining) {
                     game.join(player);
                 } else {
-                    boolean removed = game.leave(player);
-                    player.sendMessage(Component.text(removed ? "미니게임 참여를 취소했습니다." : "참여 대기 중이 아닙니다.", NamedTextColor.YELLOW, TextDecoration.BOLD));
+                    game.requestLeave(player);
                 }
             });
         }, ClickCallback.Options.builder().uses(1).build());
