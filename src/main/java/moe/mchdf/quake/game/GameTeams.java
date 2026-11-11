@@ -8,8 +8,12 @@ import java.util.Map;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.scoreboard.Criteria;
+import org.bukkit.scoreboard.DisplaySlot;
+import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
@@ -33,12 +37,17 @@ final class GameTeams {
         scoreboard = Bukkit.getScoreboardManager().getNewScoreboard();
         Team red = createTeam("RED", NamedTextColor.RED);
         Team blue = createTeam("BLUE", NamedTextColor.BLUE);
+        // The scoreboard is only set for participants, so everyone else keeps the default tab list.
+        Objective kills = scoreboard.registerNewObjective("kills", Criteria.PLAYER_KILL_COUNT, Component.text("처치"));
+        kills.setDisplaySlot(DisplaySlot.PLAYER_LIST);
         for (int i = 0; i < players.size(); i++) {
             Player player = players.get(i);
             Team team = i % 2 == 0 ? red : blue;
             team.addEntry(player.getName());
             previousScoreboards.put(player.getUniqueId(), player.getScoreboard());
             player.setScoreboard(scoreboard);
+            kills.getScore(player.getName()).setScore(0);
+            updateTabListFooter();
             player.sendMessage(Component.text(team.getName() + " 팀에 배정되었습니다.", team.color()));
         }
     }
@@ -51,6 +60,63 @@ final class GameTeams {
         return team;
     }
 
+    private int getTeamKillTotal(Team team) {
+        int total = 0;
+        for (String entry : team.getEntries()) {
+            Player player = Bukkit.getPlayerExact(entry);
+            if (player != null) {
+                total += player.getStatistic(org.bukkit.Statistic.PLAYER_KILLS);
+            }
+        }
+        return total;
+    }
+
+    void updateTabListFooter() {
+        if (scoreboard == null) {
+            return;
+        }
+        Team red = null;
+        Team blue = null;
+        for (Team team : scoreboard.getTeams()) {
+            if (team.getName().equals("RED")) {
+                red = team;
+            } else if (team.getName().equals("BLUE")) {
+                blue = team;
+            }
+        }
+        if (red == null || blue == null) {
+            return;
+        }
+        int redTotal = getTeamKillTotal(red);
+        int blueTotal = getTeamKillTotal(blue);
+
+        Component header = Component.text("QUAKE", NamedTextColor.GOLD, TextDecoration.BOLD)
+                .appendNewline()
+                .append(Component.text("RED", NamedTextColor.RED))
+                .append(Component.text(" vs ", NamedTextColor.GRAY))
+                .append(Component.text("BLUE", NamedTextColor.BLUE));
+
+        for (String entry : scoreboard.getEntries()) {
+            Player player = Bukkit.getPlayerExact(entry);
+            if (player == null || player.getScoreboard() != scoreboard) {
+                continue;
+            }
+            Team playerTeam = scoreboard.getEntryTeam(entry);
+            if (playerTeam == null) {
+                continue;
+            }
+            Component footer = Component.text("RED ", NamedTextColor.RED)
+                    .append(Component.text(String.valueOf(redTotal), NamedTextColor.WHITE))
+                    .append(Component.text(" | ", NamedTextColor.GRAY))
+                    .append(Component.text("BLUE ", NamedTextColor.BLUE))
+                    .append(Component.text(String.valueOf(blueTotal), NamedTextColor.WHITE))
+                    .appendNewline()
+                    .append(Component.text("내 팀: ", NamedTextColor.GRAY))
+                    .append(Component.text(playerTeam.getName(), playerTeam.color()));
+            player.sendPlayerListHeaderAndFooter(header, footer);
+        }
+    }
+
     void remove(Player player) {
         Scoreboard previous = previousScoreboards.remove(player.getUniqueId());
         if (previous == null) {
@@ -60,6 +126,8 @@ final class GameTeams {
         if (team != null) {
             team.removeEntry(player.getName());
         }
+        scoreboard.resetScores(player.getName());
+        player.sendPlayerListHeaderAndFooter(Component.empty(), Component.empty());
         if (player.getScoreboard() == scoreboard) {
             player.setScoreboard(previous);
         }
@@ -88,6 +156,9 @@ final class GameTeams {
         if (scoreboard != null) {
             for (Team team : scoreboard.getTeams()) {
                 team.unregister();
+            }
+            for (Objective objective : scoreboard.getObjectives()) {
+                objective.unregister();
             }
             scoreboard = null;
         }
