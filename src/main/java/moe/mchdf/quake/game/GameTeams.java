@@ -86,15 +86,35 @@ public final class GameTeams {
         targetReachedListener = listener;
     }
 
-    public void awardPoint(Player shooter) {
+    public void awardPoint(Player shooter, Player target) {
         String team = getTeamOf(shooter);
-        if (team == null) {
+        String targetTeam = getTeamOf(target);
+        if (team == null || target == null || targetTeam == null) {
             return;
         }
         int newScore = teamScores.getOrDefault(team, 0) + 1;
         teamScores.put(team, newScore);
         updateTabListFooter();
-        shooter.sendMessage(Component.text(team + " 팀 점수 +1", NamedTextColor.GOLD, TextDecoration.BOLD));
+
+        NamedTextColor shooterColor = team.equals("RED") ? NamedTextColor.RED : NamedTextColor.BLUE;
+        NamedTextColor targetColor = targetTeam.equals("RED") ? NamedTextColor.RED : NamedTextColor.BLUE;
+        Component message = Component.text("[", NamedTextColor.GRAY)
+                .append(Component.text(team, shooterColor, TextDecoration.BOLD))
+                .append(Component.text("] ", NamedTextColor.GRAY))
+                .append(Component.text(shooter.getName(), shooterColor, TextDecoration.BOLD))
+                .append(Component.text(" -> ", NamedTextColor.GRAY))
+                .append(Component.text("[", NamedTextColor.GRAY))
+                .append(Component.text(targetTeam, targetColor, TextDecoration.BOLD))
+                .append(Component.text("] ", NamedTextColor.GRAY))
+                .append(Component.text(target.getName(), targetColor, TextDecoration.BOLD));
+
+        for (UUID id : new ArrayList<>(playerTeams.keySet())) {
+            Player player = Bukkit.getPlayer(id);
+            if (player != null) {
+                player.sendMessage(message);
+            }
+        }
+
         if (newScore >= targetScore && targetReachedListener != null) {
             targetReachedListener.run();
         }
