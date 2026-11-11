@@ -108,6 +108,64 @@ class GameSessionTest {
     }
 
     @Test
+    void leaveDuringCountdownRestartsCountdownWhenMinimumIsStillMet() {
+        Player first = player();
+        Player second = player();
+        Player third = player();
+        game.join(first);
+        game.join(second);
+        game.join(third);
+        tickSeconds(10);
+        disconnect(third);
+        assertEquals(GameState.COUNTDOWN, game.getState());
+        assertEquals(1, tasks.stream().filter(task -> !task.cancelled).count());
+        tickSeconds(29);
+        assertEquals(GameState.COUNTDOWN, game.getState());
+        tickSeconds(1);
+        assertTrue(game.isRunning());
+        assertTrue(game.contains(first));
+        assertTrue(game.contains(second));
+    }
+
+    @Test
+    void offlineParticipantsAtCountdownEndReturnSessionToWaiting() {
+        Player first = player();
+        Player second = player();
+        game.join(first);
+        game.join(second);
+        online.remove(second.getUniqueId()); // Offline without a quit event reaching the session.
+        tickSeconds(30);
+        assertEquals(GameState.WAITING, game.getState());
+        assertTrue(game.contains(first));
+        assertFalse(game.contains(second));
+        assertTrue(tasks.stream().allMatch(task -> task.cancelled));
+        verify(teams.constructed().getFirst(), never()).assign(any());
+        game.join(player());
+        assertEquals(GameState.COUNTDOWN, game.getState());
+    }
+
+    @Test
+    void emptyTeamCancelsGameAndRemainingPlayersWaitForNextGame() {
+        Player first = player();
+        Player second = player();
+        Player third = player();
+        game.join(first);
+        game.join(second);
+        game.join(third);
+        tickSeconds(30);
+        assertTrue(game.isRunning());
+        when(teams.constructed().getFirst().hasEmptyTeam()).thenReturn(true);
+        disconnect(first);
+        assertEquals(GameState.COUNTDOWN, game.getState());
+        assertTrue(game.contains(second));
+        assertTrue(game.contains(third));
+        assertFalse(game.contains(first));
+        assertEquals(1, tasks.stream().filter(task -> !task.cancelled).count());
+        verify(book).giveMenuBook(second);
+        verify(book).giveMenuBook(third);
+    }
+
+    @Test
     void oneRemainingPlayerCancelsGameAndAutomaticallyWaitsForNextGame() {
         Player first = player();
         Player second = player();

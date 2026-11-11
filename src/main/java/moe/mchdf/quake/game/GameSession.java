@@ -103,14 +103,15 @@ public final class GameSession {
         display.hide(player);
         if (state == GameState.RUNNING) {
             gameTeams.remove(player);
-            if (participants.size() <= 1) {
+            if (participants.size() <= 1 || gameTeams.hasEmptyTeam()) {
                 finishGame(true);
             }
             return true;
         }
-        // Any participant leaving resets the countdown, even if the minimum is still met.
+        // Any participant leaving resets the countdown; it restarts if the minimum is still met.
         cancelCountdown();
         showPlayerCount();
+        updateAfterJoin();
         return true;
     }
 
@@ -119,6 +120,13 @@ public final class GameSession {
     }
 
     private void startGame() {
+        // Drop participants who went offline without a quit event so team assignment cannot fail.
+        participants.removeIf(playerId -> Bukkit.getPlayer(playerId) == null);
+        if (participants.size() < GameSettings.MIN_PLAYERS) {
+            state = GameState.WAITING;
+            showPlayerCount();
+            return;
+        }
         gameTeams.assign(participants);
         state = GameState.RUNNING;
         for (UUID playerId : participants) {
@@ -130,7 +138,10 @@ public final class GameSession {
         }
         // Capture the duration so configuration changes apply only to the next game.
         int duration = settings.durationSeconds();
-        timer.start(duration, remaining -> display.running(remaining, duration),
+        timer.start(duration, remaining -> {
+            display.running(remaining, duration);
+            gameTeams.updateTabListFooter();
+        },
                 () -> finishGame(false));
     }
 

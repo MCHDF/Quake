@@ -65,6 +65,18 @@ final class GameTeams {
         }
     }
 
+    boolean hasEmptyTeam() {
+        if (scoreboard == null) {
+            return false;
+        }
+        for (Team team : scoreboard.getTeams()) {
+            if (team.getEntries().isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     void clear() {
         for (UUID id : new ArrayList<>(previousScoreboards.keySet())) {
             Player player = Bukkit.getPlayer(id);
