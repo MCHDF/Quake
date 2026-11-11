@@ -37,7 +37,6 @@ public final class Quake extends JavaPlugin {
             game.shutdown();
         }
         // Plugin shutdown logic
-        getSLF4JLogger().info("<red>MCHDF Quake 플러그인 비활성화</red>");
         getComponentLogger().info(
                 Component.text("MCHDF Quake 플러그인이 비활성화 되었습니다.", NamedTextColor.RED, TextDecoration.BOLD)
         );
