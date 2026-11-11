@@ -101,12 +101,12 @@ public final class GameTeams {
         Component message = Component.text("[", NamedTextColor.GRAY)
                 .append(Component.text(team, shooterColor, TextDecoration.BOLD))
                 .append(Component.text("] ", NamedTextColor.GRAY))
-                .append(Component.text(shooter.getName(), shooterColor, TextDecoration.BOLD))
+                .append(Component.text(shooter.getName(), NamedTextColor.WHITE))
                 .append(Component.text(" -> ", NamedTextColor.GRAY))
                 .append(Component.text("[", NamedTextColor.GRAY))
                 .append(Component.text(targetTeam, targetColor, TextDecoration.BOLD))
                 .append(Component.text("] ", NamedTextColor.GRAY))
-                .append(Component.text(target.getName(), targetColor, TextDecoration.BOLD));
+                .append(Component.text(target.getName(), NamedTextColor.WHITE));
 
         for (UUID id : new ArrayList<>(playerTeams.keySet())) {
             Player player = Bukkit.getPlayer(id);
