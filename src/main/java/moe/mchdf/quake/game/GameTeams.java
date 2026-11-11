@@ -93,6 +93,7 @@ public final class GameTeams {
         }
         int newScore = teamScores.getOrDefault(team, 0) + 1;
         teamScores.put(team, newScore);
+        updateTabListFooter();
         shooter.sendMessage(Component.text(team + " 팀 점수 +1", NamedTextColor.GOLD, TextDecoration.BOLD));
         if (newScore >= targetScore && targetReachedListener != null) {
             targetReachedListener.run();
@@ -145,8 +146,8 @@ public final class GameTeams {
         if (red == null || blue == null) {
             return;
         }
-        int redTotal = getTeamKillTotal(red);
-        int blueTotal = getTeamKillTotal(blue);
+        int redTotal = getTeamScore("RED");
+        int blueTotal = getTeamScore("BLUE");
 
         Component header = Component.text("QUAKE", NamedTextColor.GOLD, TextDecoration.BOLD)
                 .appendNewline()
