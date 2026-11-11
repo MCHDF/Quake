@@ -10,7 +10,7 @@ commands:
     description: Quake 미니게임 관리 명령어
     usage: /quake get book 또는 /quake setTimer <seconds>
     permission: quake.command
-    permission-message: OP만 사용할 수 있는 명령어입니다.
+    permission-message: 이 명령어를 사용할 권한이 없습니다.
 
 permissions:
   quake.command:

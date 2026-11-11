@@ -26,10 +26,6 @@ public final class QuakeCommand implements TabExecutor {
             sender.sendMessage(Component.text("플레이어만 사용할 수 있는 명령어입니다.", NamedTextColor.RED));
             return true;
         }
-        if (!player.isOp()) {
-            player.sendMessage(Component.text("OP만 사용할 수 있는 명령어입니다.", NamedTextColor.RED));
-            return true;
-        }
         if (args.length == 2 && args[0].equalsIgnoreCase("setTimer")) {
             int seconds;
             try {
@@ -59,7 +55,7 @@ public final class QuakeCommand implements TabExecutor {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (!(sender instanceof Player) || !sender.isOp()) {
+        if (!(sender instanceof Player) || !command.testPermissionSilent(sender)) {
             return List.of();
         }
         if (args.length == 1) {
