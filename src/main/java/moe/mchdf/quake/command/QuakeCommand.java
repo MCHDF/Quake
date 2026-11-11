@@ -41,8 +41,23 @@ public final class QuakeCommand implements TabExecutor {
             player.sendMessage(Component.text("게임 시간을 " + seconds + "초로 설정했습니다. 다음 게임부터 적용됩니다.", NamedTextColor.GREEN));
             return true;
         }
+        if (args.length == 2 && args[0].equalsIgnoreCase("setScore")) {
+            int score;
+            try {
+                score = Integer.parseInt(args[1]);
+                if (score <= 0) {
+                    throw new NumberFormatException();
+                }
+            } catch (NumberFormatException exception) {
+                player.sendMessage(Component.text("점수는 1~2147483647 사이의 정수로 입력해 주세요.", NamedTextColor.RED));
+                return true;
+            }
+            game.setTargetScore(score);
+            player.sendMessage(Component.text("승점 기준을 " + score + "점으로 설정했습니다. 다음 게임부터 적용됩니다.", NamedTextColor.GREEN));
+            return true;
+        }
         if (args.length != 2 || !args[0].equalsIgnoreCase("get") || !args[1].equalsIgnoreCase("book")) {
-            player.sendMessage(Component.text("사용법: /quake get book 또는 /quake setTimer <seconds>", NamedTextColor.YELLOW));
+            player.sendMessage(Component.text("사용법: /quake get book 또는 /quake setTimer <seconds> 또는 /quake setScore <score>", NamedTextColor.YELLOW));
             return true;
         }
         if (game.isRunning() && game.contains(player)) {
@@ -59,12 +74,15 @@ public final class QuakeCommand implements TabExecutor {
             return List.of();
         }
         if (args.length == 1) {
-            return List.of("get", "setTimer").stream()
+            return List.of("get", "setTimer", "setScore").stream()
                     .filter(option -> option.toLowerCase(Locale.ROOT).startsWith(args[0].toLowerCase(Locale.ROOT)))
                     .toList();
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("setTimer")) {
             return List.of("180").stream().filter(option -> option.startsWith(args[1])).toList();
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("setScore")) {
+            return List.of("5").stream().filter(option -> option.startsWith(args[1])).toList();
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("get")
                 && "book".startsWith(args[1].toLowerCase(Locale.ROOT))) {

@@ -130,6 +130,8 @@ public final class GameSession {
         }
         gameTeams.assign(participants);
         state = GameState.RUNNING;
+        gameTeams.setTargetScore(settings.targetScore());
+        gameTeams.setTargetReachedListener(() -> finishGame(false));
         for (UUID playerId : participants) {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
@@ -211,5 +213,20 @@ public final class GameSession {
         }
         participants.clear();
         nextGameQueue.clear();
+    }
+
+    public GameTeams getGameTeams() {
+        return gameTeams;
+    }
+
+    public void setTargetScore(int score) {
+        if (score <= 0) {
+            throw new IllegalArgumentException("Target score must be positive");
+        }
+        settings.setTargetScore(score);
+    }
+
+    public int getTargetScore() {
+        return settings.targetScore();
     }
 }

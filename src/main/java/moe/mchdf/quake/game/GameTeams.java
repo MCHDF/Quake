@@ -17,9 +17,13 @@ import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
-final class GameTeams {
+public final class GameTeams {
     private final Map<UUID, Scoreboard> previousScoreboards = new HashMap<>();
+    private final Map<UUID, String> playerTeams = new HashMap<>();
+    private final Map<String, Integer> teamScores = new HashMap<>();
     private Scoreboard scoreboard;
+    private int targetScore = 5;
+    private Runnable targetReachedListener;
 
     void assign(Collection<UUID> participants) {
         clear();
@@ -37,6 +41,8 @@ final class GameTeams {
         scoreboard = Bukkit.getScoreboardManager().getNewScoreboard();
         Team red = createTeam("RED", NamedTextColor.RED);
         Team blue = createTeam("BLUE", NamedTextColor.BLUE);
+        teamScores.put("RED", 0);
+        teamScores.put("BLUE", 0);
         // The scoreboard is only set for participants, so everyone else keeps the default tab list.
         Objective kills = scoreboard.registerNewObjective("kills", Criteria.PLAYER_KILL_COUNT, Component.text("처치"));
         kills.setDisplaySlot(DisplaySlot.PLAYER_LIST);
@@ -45,11 +51,63 @@ final class GameTeams {
             Team team = i % 2 == 0 ? red : blue;
             team.addEntry(player.getName());
             previousScoreboards.put(player.getUniqueId(), player.getScoreboard());
+            playerTeams.put(player.getUniqueId(), team.getName());
             player.setScoreboard(scoreboard);
             kills.getScore(player.getName()).setScore(0);
             updateTabListFooter();
             player.sendMessage(Component.text(team.getName() + " 팀에 배정되었습니다.", team.color()));
         }
+    }
+
+    String getTeamOf(Player player) {
+        if (player == null) {
+            return null;
+        }
+        return playerTeams.get(player.getUniqueId());
+    }
+
+    public boolean areEnemies(Player a, Player b) {
+        if (a == null || b == null) {
+            return false;
+        }
+        String teamA = getTeamOf(a);
+        String teamB = getTeamOf(b);
+        return teamA != null && teamB != null && !teamA.equals(teamB);
+    }
+
+    public void setTargetScore(int score) {
+        if (score <= 0) {
+            throw new IllegalArgumentException("Target score must be positive");
+        }
+        targetScore = score;
+    }
+
+    public void setTargetReachedListener(Runnable listener) {
+        targetReachedListener = listener;
+    }
+
+    public void awardPoint(Player shooter) {
+        String team = getTeamOf(shooter);
+        if (team == null) {
+            return;
+        }
+        int newScore = teamScores.getOrDefault(team, 0) + 1;
+        teamScores.put(team, newScore);
+        shooter.sendMessage(Component.text(team + " 팀 점수 +1", NamedTextColor.GOLD, TextDecoration.BOLD));
+        if (newScore >= targetScore && targetReachedListener != null) {
+            targetReachedListener.run();
+        }
+    }
+
+    int getTeamScore(String teamName) {
+        if (teamName == null) {
+            return 0;
+        }
+        return teamScores.getOrDefault(teamName, 0);
+    }
+
+    GameTeams getGameTeams() {
+        return this;
     }
 
     private Team createTeam(String name, NamedTextColor color) {
@@ -122,6 +180,7 @@ final class GameTeams {
 
     void remove(Player player) {
         Scoreboard previous = previousScoreboards.remove(player.getUniqueId());
+        playerTeams.remove(player.getUniqueId());
         if (previous == null) {
             return;
         }
@@ -156,6 +215,8 @@ final class GameTeams {
             }
         }
         previousScoreboards.clear();
+        playerTeams.clear();
+        teamScores.clear();
         if (scoreboard != null) {
             for (Team team : scoreboard.getTeams()) {
                 team.unregister();

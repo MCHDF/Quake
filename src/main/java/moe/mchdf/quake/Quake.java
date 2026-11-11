@@ -7,6 +7,7 @@ import moe.mchdf.quake.listener.PlayerListener;
 import moe.mchdf.quake.menu.MenuBook;
 import moe.mchdf.quake.menu.MinigameMenu;
 import moe.mchdf.quake.weapon.RailGunListener;
+import moe.mchdf.quake.weapon.RailGunWeapon;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -24,8 +25,9 @@ public final class Quake extends JavaPlugin {
         QuakeCommand executor = new QuakeCommand(book, game);
         command.setExecutor(executor);
         command.setTabCompleter(executor);
+        RailGunWeapon railGunWeapon = new RailGunWeapon(game.getGameTeams());
         getServer().getPluginManager().registerEvents(new PlayerListener(book, menu, game), this);
-        getServer().getPluginManager().registerEvents(new RailGunListener(), this);
+        getServer().getPluginManager().registerEvents(new RailGunListener(railGunWeapon), this);
         getServer().getOnlinePlayers().forEach(book::giveMenuBook);
         // Plugin startup logic
         getComponentLogger().info(
