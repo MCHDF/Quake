@@ -135,6 +135,7 @@ public final class GameSession {
             if (player != null) {
                 player.closeInventory();
                 book.removeMenuBooks(player);
+                RailGunItem.removeFromInventory(player);
                 player.getInventory().addItem(RailGunItem.create());
             }
         }
@@ -153,6 +154,7 @@ public final class GameSession {
         for (UUID playerId : participants) {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
+                RailGunItem.removeFromInventory(player);
                 display.hide(player);
                 player.sendMessage(Component.text(cancelled
                         ? "참여 인원 부족으로 게임이 취소되었습니다."
@@ -202,6 +204,7 @@ public final class GameSession {
         for (UUID playerId : participants) {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
+                RailGunItem.removeFromInventory(player);
                 display.hide(player);
                 book.giveMenuBook(player);
             }
