@@ -45,3 +45,14 @@ Paper 서버용 미니게임 플러그인입니다. 현재 참여 메뉴와 시�
 Windows에서는 `./gradlew` 대신 `.\gradlew.bat`을 사용합니다.
 
 빌드 결과: `build/libs/OneShot-MCHDF.jar` — Paper 서버의 `plugins` 폴더에 넣어 사용합니다.
+
+게임 월드는 게임 내에서 관리자 명령어로 생성·삭제·이동할 수 있습니다.
+
+```text
+/quake world create <name>
+/quake world delete <name>
+/quake world tp <name>
+/quake world list
+```
+
+월드 생성 이름에는 영문, 숫자, `_`, `-`만 사용할 수 있습니다. 삭제할 월드에는 다른 플레이어가 없어야 하며, 현재 위치한 월드는 삭제할 수 없습니다.
