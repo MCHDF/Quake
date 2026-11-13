@@ -10,10 +10,10 @@ import io.papermc.paper.registry.data.dialog.type.DialogType;
 import java.util.List;
 import java.util.Locale;
 import moe.mchdf.quake.game.GameSession;
-import moe.mchdf.quake.game.GameWorld;
 import moe.mchdf.quake.menu.MenuBook;
 import moe.mchdf.quake.menu.WorldDeleteMenu;
 import moe.mchdf.quake.menu.WorldTeleportMenu;
+import moe.mchdf.quake.world.GameWorld;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.Command;
@@ -21,7 +21,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
-import net.kyori.adventure.text.event.ClickCallback;
 
 public final class QuakeCommand implements TabExecutor {
     private final MenuBook book;

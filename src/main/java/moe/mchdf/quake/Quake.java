@@ -3,12 +3,13 @@ package moe.mchdf.quake;
 import java.util.Objects;
 import moe.mchdf.quake.command.QuakeCommand;
 import moe.mchdf.quake.game.GameSession;
-import moe.mchdf.quake.game.GameWorld;
 import moe.mchdf.quake.listener.PlayerListener;
 import moe.mchdf.quake.menu.MenuBook;
 import moe.mchdf.quake.menu.MinigameMenu;
 import moe.mchdf.quake.menu.WorldDeleteMenu;
 import moe.mchdf.quake.menu.WorldTeleportMenu;
+import moe.mchdf.quake.world.GameWorld;
+import moe.mchdf.quake.world.GameWorldListener;
 import moe.mchdf.quake.weapon.RailGunListener;
 import moe.mchdf.quake.weapon.RailGunWeapon;
 import net.kyori.adventure.text.Component;
@@ -23,7 +24,7 @@ public final class Quake extends JavaPlugin {
     @Override
     public void onEnable() {
         gameWorld = new GameWorld(this);
-        getServer().getPluginManager().registerEvents(gameWorld, this);
+        getServer().getPluginManager().registerEvents(new GameWorldListener(gameWorld), this);
         MenuBook book = new MenuBook(this);
         game = new GameSession(this, book);
         MinigameMenu menu = new MinigameMenu(this, game);

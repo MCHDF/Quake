@@ -2,7 +2,7 @@ package moe.mchdf.quake.menu;
 
 import java.util.HashMap;
 import java.util.Map;
-import moe.mchdf.quake.game.GameWorld;
+import moe.mchdf.quake.world.GameWorld;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
