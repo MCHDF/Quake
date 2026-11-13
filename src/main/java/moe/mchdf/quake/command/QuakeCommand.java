@@ -13,6 +13,7 @@ import moe.mchdf.quake.game.GameSession;
 import moe.mchdf.quake.game.GameWorld;
 import moe.mchdf.quake.menu.MenuBook;
 import moe.mchdf.quake.menu.WorldDeleteMenu;
+import moe.mchdf.quake.menu.WorldTeleportMenu;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.Command;
@@ -28,14 +29,16 @@ public final class QuakeCommand implements TabExecutor {
     private final GameWorld gameWorld;
     private final JavaPlugin plugin;
     private final WorldDeleteMenu worldDeleteMenu;
+    private final WorldTeleportMenu worldTeleportMenu;
 
     public QuakeCommand(JavaPlugin plugin, MenuBook book, GameSession game, GameWorld gameWorld,
-                        WorldDeleteMenu worldDeleteMenu) {
+                        WorldDeleteMenu worldDeleteMenu, WorldTeleportMenu worldTeleportMenu) {
         this.plugin = plugin;
         this.book = book;
         this.game = game;
         this.gameWorld = gameWorld;
         this.worldDeleteMenu = worldDeleteMenu;
+        this.worldTeleportMenu = worldTeleportMenu;
     }
 
     @Override
@@ -81,6 +84,11 @@ public final class QuakeCommand implements TabExecutor {
         if (args.length == 2 && args[0].equalsIgnoreCase("world")
                 && args[1].equalsIgnoreCase("delete")) {
             worldDeleteMenu.open(player);
+            return true;
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("world")
+                && args[1].equalsIgnoreCase("tp")) {
+            worldTeleportMenu.open(player);
             return true;
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("world")
