@@ -27,6 +27,7 @@ public final class Quake extends JavaPlugin {
         command.setTabCompleter(executor);
         RailGunWeapon railGunWeapon = new RailGunWeapon(game.getGameTeams());
         getServer().getPluginManager().registerEvents(new PlayerListener(book, menu, game), this);
+        getServer().getPluginManager().registerEvents(game.getDoubleJump(), this);
         getServer().getPluginManager().registerEvents(new RailGunListener(railGunWeapon), this);
         getServer().getOnlinePlayers().forEach(book::giveMenuBook);
         // Plugin startup logic

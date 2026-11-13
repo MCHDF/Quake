@@ -19,6 +19,7 @@ public final class GameSession {
     private final Set<UUID> nextGameQueue = new HashSet<>();
     private final GameTeams gameTeams = new GameTeams();
     private final GameDisplay display = new GameDisplay();
+    private final DoubleJump doubleJump = new DoubleJump();
     private final GameTimer timer;
     private final GameSettings settings;
     private GameState state = GameState.WAITING;
@@ -101,6 +102,7 @@ public final class GameSession {
         if (!participants.remove(player.getUniqueId())) {
             return false;
         }
+        doubleJump.disable(player);
         display.hide(player);
         if (state == GameState.RUNNING) {
             gameTeams.remove(player);
@@ -139,6 +141,7 @@ public final class GameSession {
                 book.removeMenuBooks(player);
                 RailGunItem.removeFromInventory(player);
                 player.getInventory().addItem(RailGunItem.create());
+                doubleJump.enable(player);
             }
         }
         // Capture the duration so configuration changes apply only to the next game.
@@ -156,6 +159,7 @@ public final class GameSession {
         for (UUID playerId : participants) {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
+                doubleJump.disable(player);
                 RailGunItem.removeFromInventory(player);
                 display.hide(player);
                 player.sendMessage(Component.text(cancelled
@@ -206,6 +210,7 @@ public final class GameSession {
         for (UUID playerId : participants) {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
+                doubleJump.disable(player);
                 RailGunItem.removeFromInventory(player);
                 display.hide(player);
                 book.giveMenuBook(player);
@@ -213,6 +218,10 @@ public final class GameSession {
         }
         participants.clear();
         nextGameQueue.clear();
+    }
+
+    public DoubleJump getDoubleJump() {
+        return doubleJump;
     }
 
     public GameTeams getGameTeams() {
