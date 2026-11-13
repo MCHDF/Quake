@@ -15,6 +15,9 @@ import moe.mchdf.quake.menu.WorldDeleteMenu;
 import moe.mchdf.quake.menu.WorldTeleportMenu;
 import moe.mchdf.quake.world.GameWorld;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickCallback;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -92,10 +95,9 @@ public final class QuakeCommand implements TabExecutor {
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("world")
                 && args[1].equalsIgnoreCase("list")) {
-            player.sendMessage(Component.text("로드된 월드 목록:", NamedTextColor.GREEN));
+            player.sendMessage(Component.text("로드된 월드 목록 (클릭하여 이동 가능):", NamedTextColor.GREEN));
             for (var world : gameWorld.list()) {
-                player.sendMessage(Component.text("- " + world.getName() + " (" + world.getEnvironment() + ")",
-                        NamedTextColor.GRAY));
+                player.sendMessage(worldListEntry(world));
             }
             return true;
         }
@@ -144,6 +146,35 @@ public final class QuakeCommand implements TabExecutor {
         }
         book.giveMenuBook(player, true);
         return true;
+    }
+
+    private Component worldListEntry(org.bukkit.World world) {
+        Component worldName = Component.text(world.getName(), NamedTextColor.WHITE)
+                .clickEvent(ClickEvent.callback(audience -> {
+                    if (!(audience instanceof Player target)) {
+                        return;
+                    }
+                    org.bukkit.Bukkit.getScheduler().runTask(plugin, () -> {
+                        org.bukkit.World current = org.bukkit.Bukkit.getWorld(world.getName());
+                        if (current == null) {
+                            target.sendMessage(Component.text(
+                                    "월드가 언로드되었습니다: " + world.getName(), NamedTextColor.RED));
+                            return;
+                        }
+                        if (current.equals(target.getWorld())) {
+                            target.sendMessage(Component.text(
+                                    "이미 해당 월드에 있습니다: " + current.getName(), NamedTextColor.YELLOW));
+                            return;
+                        }
+                        target.teleport(current.getSpawnLocation());
+                        target.sendMessage(Component.text(
+                                "월드로 이동했습니다: " + current.getName(), NamedTextColor.GREEN));
+                    });
+                }, ClickCallback.Options.builder().uses(1).build()))
+                .hoverEvent(HoverEvent.showText(Component.text("클릭하여 이동", NamedTextColor.AQUA)));
+        return Component.text("- ", NamedTextColor.GRAY)
+                .append(worldName)
+                .append(Component.text(" (" + world.getEnvironment() + ")", NamedTextColor.GRAY));
     }
 
     private void openCreateWorldDialog(Player player) {
