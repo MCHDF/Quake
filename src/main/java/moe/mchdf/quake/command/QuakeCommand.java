@@ -104,7 +104,7 @@ public final class QuakeCommand implements TabExecutor {
         if (args.length == 3 && args[0].equalsIgnoreCase("world")
                 && args[1].equalsIgnoreCase("create")) {
             try {
-                gameWorld.create(args[2]);
+                gameWorld.create(args[2], player.getUniqueId());
                 player.sendMessage(Component.text("월드를 생성했습니다: " + args[2], NamedTextColor.GREEN));
             } catch (IllegalArgumentException | IllegalStateException exception) {
                 player.sendMessage(Component.text(exception.getMessage(), NamedTextColor.RED));
@@ -196,7 +196,7 @@ public final class QuakeCommand implements TabExecutor {
                                         String name = response.getText("world_name");
                                         org.bukkit.Bukkit.getScheduler().runTask(plugin, () -> {
                                             try {
-                                                gameWorld.create(name);
+                                                gameWorld.create(name, owner.getUniqueId());
                                                 owner.sendMessage(Component.text(
                                                         "월드를 생성했습니다: " + name, NamedTextColor.GREEN));
                                             } catch (IllegalArgumentException | IllegalStateException exception) {

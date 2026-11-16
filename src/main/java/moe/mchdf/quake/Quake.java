@@ -3,6 +3,7 @@ package moe.mchdf.quake;
 import java.util.Objects;
 import moe.mchdf.quake.command.QuakeCommand;
 import moe.mchdf.quake.database.DatabaseManager;
+import moe.mchdf.quake.database.GameWorldRepository;
 import moe.mchdf.quake.game.GameSession;
 import moe.mchdf.quake.listener.PlayerListener;
 import moe.mchdf.quake.menu.MenuBook;
@@ -26,8 +27,9 @@ public final class Quake extends JavaPlugin {
     @Override
     public void onEnable() {
         database = new DatabaseManager(this);
-        gameWorld = new GameWorld(this);
+        gameWorld = new GameWorld(this, new GameWorldRepository(database));
         getServer().getPluginManager().registerEvents(new GameWorldListener(gameWorld), this);
+        gameWorld.loadAll();
         MenuBook book = new MenuBook(this);
         game = new GameSession(this, book);
         MinigameMenu menu = new MinigameMenu(this, game);
