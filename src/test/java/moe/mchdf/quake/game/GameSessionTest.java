@@ -10,6 +10,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import moe.mchdf.quake.menu.MenuBook;
+import moe.mchdf.quake.item.RailGunItem;
+import moe.mchdf.quake.world.GameWorld;
+import moe.mchdf.quake.world.GameWorldInfo;
+import moe.mchdf.quake.world.GameWorldStatus;
+import org.bukkit.World;
+import org.bukkit.Location;
+import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -29,11 +37,20 @@ class GameSessionTest {
     private MockedConstruction<GameTeams> teams;
     private GameSession game;
     private MenuBook book;
+    private GameWorld worlds;
+    private MockedStatic<RailGunItem> railGun;
+    private final List<GameWorldInfo> ready = new ArrayList<>();
 
     @BeforeEach
     void setUp() {
         bukkit = mockStatic(Bukkit.class);
-        teams = mockConstruction(GameTeams.class);
+        teams = mockConstruction(GameTeams.class, (mock, context) ->
+                when(mock.getTeamOf(any(Player.class))).thenReturn("RED"));
+        railGun = mockStatic(RailGunItem.class);
+        railGun.when(RailGunItem::create).thenReturn(mock(ItemStack.class));
+        worlds = mock(GameWorld.class);
+        when(worlds.readyWorlds()).thenAnswer(invocation -> List.copyOf(ready));
+        ready.add(arena("arena_a", 2, 16));
         JavaPlugin plugin = mock(JavaPlugin.class);
         when(plugin.getConfig()).thenReturn(new YamlConfiguration());
         book = mock(MenuBook.class);
@@ -47,13 +64,185 @@ class GameSessionTest {
                     tasks.add(task);
                     return task.handle;
                 });
-        game = new GameSession(plugin, book);
+        game = new GameSession(plugin, book, worlds);
     }
 
     @AfterEach
     void tearDown() {
+        railGun.close();
         teams.close();
         bukkit.close();
+    }
+
+    private GameWorldInfo arena(String name, int min, int max) {
+        World world = mock(World.class);
+        UUID id = UUID.nameUUIDFromBytes(name.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        when(world.getName()).thenReturn(name);
+        when(world.getUID()).thenReturn(id);
+        when(world.getSpawnLocation()).thenReturn(new Location(world, 0, 65, 0));
+        bukkit.when(() -> Bukkit.getWorld(name)).thenReturn(world);
+        Location redSpawn = world.getSpawnLocation();
+        when(worlds.teamSpawn(name, "RED")).thenReturn(redSpawn);
+        when(worlds.teamSpawn(name, "BLUE")).thenReturn(new Location(world, 10, 65, 10, 90, 0));
+        return new GameWorldInfo(name, id, name, GameWorldStatus.READY, null, null, min, max);
+    }
+
+    @Test
+    void rotatesAfterThirtySecondsAndImmediatelyUsesNextWorldMinimum() {
+        ready.set(0, arena("arena_a", 4, 16));
+        ready.add(arena("arena_b", 2, 8));
+        Player first = player();
+        Player second = player();
+        game.join(first);
+        game.join(second);
+        tickSeconds(29);
+        assertEquals("arena_a", game.getCurrentWorld().name());
+        assertEquals(GameState.WAITING, game.getState());
+        tickSeconds(1);
+        assertEquals("arena_b", game.getCurrentWorld().name());
+        assertEquals(GameState.COUNTDOWN, game.getState());
+        assertTrue(game.contains(first));
+        tickSeconds(30);
+        assertTrue(game.isRunning());
+        verify(first).teleport(Bukkit.getWorld("arena_b").getSpawnLocation());
+    }
+
+    @Test
+    void reachingMinimumStartsCountdownWithoutWaitingForRotationDeadline() {
+        tickSeconds(7);
+        game.join(player());
+        game.join(player());
+        assertEquals(GameState.COUNTDOWN, game.getState());
+        tickSeconds(29);
+        assertEquals(GameState.COUNTDOWN, game.getState());
+        tickSeconds(1);
+        assertTrue(game.isRunning());
+        assertEquals(1, tasks.stream().filter(task -> !task.cancelled).count());
+    }
+
+    @Test
+    void rotationWrapsAndHandlesNoReadyWorlds() {
+        ready.add(arena("arena_b", 2, 16));
+        tickSeconds(30);
+        assertEquals("arena_b", game.getCurrentWorld().name());
+        tickSeconds(30);
+        assertEquals("arena_a", game.getCurrentWorld().name());
+        ready.clear();
+        tickSeconds(30);
+        assertNull(game.getCurrentWorld());
+        game.join(player());
+        game.join(player());
+        assertEquals(GameState.WAITING, game.getState());
+        ready.add(arena("arena_c", 2, 16));
+        tickSeconds(30);
+        assertEquals(GameState.COUNTDOWN, game.getState());
+        assertEquals("arena_c", game.getCurrentWorld().name());
+    }
+
+    @Test
+    void unavailableWorldAtCountdownEndIsSkipped() {
+        game.join(player());
+        game.join(player());
+        ready.clear();
+        ready.add(arena("arena_b", 4, 16));
+        tickSeconds(30);
+        assertEquals(GameState.WAITING, game.getState());
+        assertEquals("arena_b", game.getCurrentWorld().name());
+        verify(teams.constructed().getFirst(), never()).assign(any());
+    }
+
+    @Test
+    void capacityUsesApplicationOrderAndKeepsOverflowForNextWorld() {
+        ready.set(0, arena("arena_a", 2, 2));
+        ready.add(arena("arena_b", 2, 16));
+        game.setGameDurationSeconds(1);
+        Player first = player();
+        Player second = player();
+        Player third = player();
+        game.join(first);
+        game.join(second);
+        game.join(third);
+        tickSeconds(30);
+        assertTrue(game.contains(first));
+        assertTrue(game.contains(second));
+        assertFalse(game.contains(third));
+        assertTrue(game.isQueued(third));
+        tickSeconds(1);
+        assertEquals("arena_b", game.getCurrentWorld().name());
+        assertTrue(game.contains(third));
+        assertFalse(game.isQueued(third));
+    }
+
+    @Test
+    void leavingWhileWaitingDoesNotResetThirtySecondDeadline() {
+        ready.set(0, arena("arena_a", 4, 16));
+        ready.add(arena("arena_b", 4, 16));
+        Player first = player();
+        game.join(first);
+        tickSeconds(20);
+        game.leave(first);
+        tickSeconds(10);
+        assertEquals("arena_b", game.getCurrentWorld().name());
+    }
+
+    @Test
+    void newlyReadyWorldIsAppendedAfterAlreadyWaitingWorlds() {
+        ready.add(arena("arena_b", 2, 16).withStatus(GameWorldStatus.READY, 1));
+        ready.add(arena("arena_c", 2, 16).withStatus(GameWorldStatus.READY, 2));
+        tickSeconds(30);
+        assertEquals("arena_b", game.getCurrentWorld().name());
+        ready.add(arena("aaa_new", 2, 16).withStatus(GameWorldStatus.READY, 3));
+        game.onWorldSettingsChanged();
+        assertEquals("arena_b", game.getCurrentWorld().name());
+        tickSeconds(30);
+        assertEquals("arena_c", game.getCurrentWorld().name());
+        tickSeconds(30);
+        assertEquals("arena_a", game.getCurrentWorld().name());
+        tickSeconds(30);
+        assertEquals("aaa_new", game.getCurrentWorld().name());
+    }
+
+    @Test
+    void maintenanceRemovesCurrentWorldImmediatelyAndReReadyJoinsTail() {
+        ready.add(arena("arena_b", 2, 16).withStatus(GameWorldStatus.READY, 1));
+        ready.add(arena("arena_c", 2, 16).withStatus(GameWorldStatus.READY, 2));
+        GameWorldInfo original = ready.removeFirst();
+        game.onWorldSettingsChanged();
+        assertEquals("arena_b", game.getCurrentWorld().name());
+        ready.add(original.withStatus(GameWorldStatus.READY, 3));
+        game.onWorldSettingsChanged();
+        tickSeconds(30);
+        assertEquals("arena_c", game.getCurrentWorld().name());
+        tickSeconds(30);
+        assertEquals("arena_a", game.getCurrentWorld().name());
+    }
+
+    @Test
+    void playersTeleportToAssignedTeamSpawns() {
+        Player red = player();
+        Player blue = player();
+        when(teams.constructed().getFirst().getTeamOf(blue)).thenReturn("BLUE");
+        start(red, blue);
+        verify(red).teleport(worlds.teamSpawn("arena_a", "RED"));
+        verify(blue).teleport(worlds.teamSpawn("arena_a", "BLUE"));
+        verify(blue, never()).teleport(worlds.teamSpawn("arena_a", "RED"));
+    }
+
+    @Test
+    void teleportFailureRestoresTeamsAndKeepsApplicants() {
+        Player first = player();
+        Player second = player();
+        when(second.teleport(any(Location.class))).thenReturn(false);
+        game.join(first);
+        game.join(second);
+        tickSeconds(30);
+        assertFalse(game.isRunning());
+        assertTrue(game.contains(first));
+        assertTrue(game.contains(second));
+        verify(teams.constructed().getFirst()).clear();
+        Location original = first.getLocation();
+        verify(first).teleport(original);
+        verify(book, never()).removeMenuBooks(any());
     }
 
     private Player player() {
@@ -61,6 +250,9 @@ class GameSessionTest {
         UUID id = UUID.randomUUID();
         when(player.getUniqueId()).thenReturn(id);
         when(player.isOnline()).thenAnswer(invocation -> online.containsKey(id));
+        when(player.getInventory()).thenReturn(mock(PlayerInventory.class));
+        when(player.getLocation()).thenReturn(new Location(mock(World.class), 0, 65, 0));
+        when(player.teleport(any(Location.class))).thenReturn(true);
         online.put(id, player);
         return player;
     }
@@ -138,7 +330,7 @@ class GameSessionTest {
         assertEquals(GameState.WAITING, game.getState());
         assertTrue(game.contains(first));
         assertFalse(game.contains(second));
-        assertTrue(tasks.stream().allMatch(task -> task.cancelled));
+        assertEquals(1, tasks.stream().filter(task -> !task.cancelled).count());
         verify(teams.constructed().getFirst(), never()).assign(any());
         game.join(player());
         assertEquals(GameState.COUNTDOWN, game.getState());
@@ -178,7 +370,7 @@ class GameSessionTest {
         assertFalse(game.contains(first));
         assertFalse(game.isQueued(second));
         verify(book).giveMenuBook(second);
-        assertTrue(tasks.stream().allMatch(task -> task.cancelled));
+        assertEquals(1, tasks.stream().filter(task -> !task.cancelled).count());
         tickSeconds(200);
         assertTrue(game.contains(second));
         assertEquals(GameState.WAITING, game.getState());
@@ -268,7 +460,7 @@ class GameSessionTest {
         assertEquals(GameState.WAITING, game.getState());
         assertTrue(game.contains(next));
         assertFalse(game.isQueued(next));
-        assertTrue(tasks.stream().allMatch(task -> task.cancelled));
+        assertEquals(1, tasks.stream().filter(task -> !task.cancelled).count());
         game.join(player());
         assertEquals(GameState.COUNTDOWN, game.getState());
     }
@@ -310,7 +502,7 @@ class GameSessionTest {
         assertTrue(game.isRunning());
         tickSeconds(1);
         assertEquals(GameState.WAITING, game.getState());
-        assertTrue(tasks.stream().allMatch(task -> task.cancelled));
+        assertEquals(1, tasks.stream().filter(task -> !task.cancelled).count());
     }
 
     @Test

@@ -26,8 +26,21 @@ final class GameDisplay {
         bar.color(BossBar.Color.GREEN);
     }
 
-    void countdown(int remaining, int total, Collection<UUID> participants) {
-        bar.name(Component.text("게임을 시작합니다! | 시작까지 " + remaining + "초"));
+    void rotating(String worldName, int count, int minimum, int maximum, int remaining) {
+        bar.name(Component.text(worldName + " | 참여 " + count + "명 (최소 " + minimum
+                + ", 최대 " + maximum + ") | 다음 월드까지 " + remaining + "초"));
+        bar.progress(Math.min(1.0f, count / (float) minimum));
+        bar.color(BossBar.Color.GREEN);
+    }
+
+    void noWorld() {
+        bar.name(Component.text("준비된 게임 월드를 기다리고 있습니다."));
+        bar.progress(0);
+        bar.color(BossBar.Color.GREEN);
+    }
+
+    void countdown(String worldName, int remaining, int total, Collection<UUID> participants) {
+        bar.name(Component.text(worldName + " | 게임을 시작합니다! | 시작까지 " + remaining + "초"));
         bar.progress(remaining / (float) total);
         bar.color(remaining <= 10 ? BossBar.Color.RED : BossBar.Color.YELLOW);
         if (remaining <= 5) {

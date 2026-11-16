@@ -39,13 +39,17 @@ public final class MinigameMenu {
                 ? (queued ? "다음 게임 대기 중입니다. 현재 게임 종료 후 자동으로 참여합니다."
                           : "게임이 진행 중입니다. 다음 게임 대기열에 등록할 수 있습니다.")
                 : (waiting ? "현재 참여 대기 중입니다." : "참여 버튼을 눌러 미니게임 대기 명단에 등록하세요.");
+        var currentWorld = game.getCurrentWorld();
+        String worldDescription = currentWorld == null ? "준비된 월드가 없습니다."
+                : "현재 월드: " + currentWorld.displayName() + " (최소 " + currentWorld.minPlayers()
+                        + "명 / 최대 " + currentWorld.maxPlayers() + "명)";
         String joinLabel = running ? (queued ? "다음 게임 대기 중" : "다음 게임 참여")
                 : (waiting ? "참여 대기 중" : "참여하기");
         Dialog dialog = Dialog.create(builder -> builder.empty()
                 .base(DialogBase.builder(Component.text("Quake 미니게임", NamedTextColor.GOLD))
                         .canCloseWithEscape(true)
                         .body(List.of(DialogBody.plainMessage(Component.text(
-                                description,
+                                description + "\n" + worldDescription,
                                 NamedTextColor.WHITE, TextDecoration.BOLD))))
                         .build())
                 .type(DialogType.multiAction(List.of(

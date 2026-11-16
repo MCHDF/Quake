@@ -31,7 +31,7 @@ public final class Quake extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new GameWorldListener(gameWorld), this);
         gameWorld.loadAll();
         MenuBook book = new MenuBook(this);
-        game = new GameSession(this, book);
+        game = new GameSession(this, book, gameWorld);
         MinigameMenu menu = new MinigameMenu(this, game);
         WorldDeleteMenu worldDeleteMenu = new WorldDeleteMenu(this, gameWorld);
         WorldTeleportMenu worldTeleportMenu = new WorldTeleportMenu(gameWorld);

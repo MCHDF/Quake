@@ -14,6 +14,7 @@ import moe.mchdf.quake.menu.MenuBook;
 import moe.mchdf.quake.menu.WorldDeleteMenu;
 import moe.mchdf.quake.menu.WorldTeleportMenu;
 import moe.mchdf.quake.world.GameWorld;
+import moe.mchdf.quake.world.GameWorldStatus;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickCallback;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -79,6 +80,55 @@ public final class QuakeCommand implements TabExecutor {
             player.sendMessage(Component.text("승점 기준을 " + score + "점으로 설정했습니다. 다음 게임부터 적용됩니다.", NamedTextColor.GREEN));
             return true;
         }
+        if (args.length == 4 && args[0].equalsIgnoreCase("world")
+                && args[1].equalsIgnoreCase("status")) {
+            try {
+                GameWorldStatus status;
+                try {
+                    status = GameWorldStatus.valueOf(args[3].toUpperCase(Locale.ROOT));
+                } catch (IllegalArgumentException exception) {
+                    throw new IllegalArgumentException("상태는 ready, maintenance, disabled 중 하나로 입력해 주세요.");
+                }
+                gameWorld.setStatus(args[2], status);
+                game.onWorldSettingsChanged();
+                player.sendMessage(Component.text("월드 상태를 변경했습니다: " + args[2] + " → " + status,
+                        NamedTextColor.GREEN));
+            } catch (IllegalArgumentException | IllegalStateException exception) {
+                player.sendMessage(Component.text(exception.getMessage(), NamedTextColor.RED));
+            }
+            return true;
+        }
+        if (args.length == 4 && args[0].equalsIgnoreCase("world")
+                && args[1].equalsIgnoreCase("spawn")) {
+            try {
+                if (game.isRunning() && game.getCurrentWorld().name().equals(args[2])) {
+                    throw new IllegalArgumentException("게임 진행 중인 월드의 스폰은 변경할 수 없습니다.");
+                }
+                String team = args[3].toUpperCase(Locale.ROOT);
+                gameWorld.setSpawn(args[2], team, player.getLocation());
+                player.sendMessage(Component.text(args[2] + "의 " + team
+                        + " 스폰을 현재 위치와 시선 방향으로 저장했습니다.", NamedTextColor.GREEN));
+            } catch (IllegalArgumentException | IllegalStateException exception) {
+                player.sendMessage(Component.text(exception.getMessage(), NamedTextColor.RED));
+            }
+            return true;
+        }
+        if (args.length == 5 && args[0].equalsIgnoreCase("world")
+                && args[1].equalsIgnoreCase("players")) {
+            try {
+                int min = Integer.parseInt(args[3]);
+                int max = Integer.parseInt(args[4]);
+                gameWorld.setPlayerLimits(args[2], min, max);
+                game.onWorldSettingsChanged();
+                player.sendMessage(Component.text("월드 인원 설정을 저장했습니다: " + args[2]
+                        + " (최소 " + min + "명, 최대 " + max + "명)", NamedTextColor.GREEN));
+            } catch (NumberFormatException exception) {
+                player.sendMessage(Component.text("인원은 2~16 사이의 짝수로 입력해 주세요.", NamedTextColor.RED));
+            } catch (IllegalArgumentException | IllegalStateException exception) {
+                player.sendMessage(Component.text(exception.getMessage(), NamedTextColor.RED));
+            }
+            return true;
+        }
         if (args.length == 2 && args[0].equalsIgnoreCase("world") && args[1].equalsIgnoreCase("create")) {
             openCreateWorldDialog(player);
             return true;
@@ -95,7 +145,7 @@ public final class QuakeCommand implements TabExecutor {
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("world")
                 && args[1].equalsIgnoreCase("list")) {
-            player.sendMessage(Component.text("로드된 월드 목록 (클릭하여 이동 가능):", NamedTextColor.GREEN));
+            player.sendMessage(Component.text("등록된 게임 월드 목록 (클릭하여 이동 가능):", NamedTextColor.GREEN));
             for (var world : gameWorld.list()) {
                 player.sendMessage(worldListEntry(world));
             }
@@ -105,7 +155,7 @@ public final class QuakeCommand implements TabExecutor {
                 && args[1].equalsIgnoreCase("create")) {
             try {
                 gameWorld.create(args[2], player.getUniqueId());
-                player.sendMessage(Component.text("월드를 생성했습니다: " + args[2], NamedTextColor.GREEN));
+                player.sendMessage(Component.text("점검 중인 월드를 생성했습니다: " + args[2], NamedTextColor.GREEN));
             } catch (IllegalArgumentException | IllegalStateException exception) {
                 player.sendMessage(Component.text(exception.getMessage(), NamedTextColor.RED));
             }
@@ -113,15 +163,19 @@ public final class QuakeCommand implements TabExecutor {
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("world")
                 && args[1].equalsIgnoreCase("delete")) {
-            var world = org.bukkit.Bukkit.getWorld(args[2]);
-            if (world == null) {
-                player.sendMessage(Component.text("로드된 월드를 찾을 수 없습니다: " + args[2], NamedTextColor.RED));
-            } else if (world.equals(player.getWorld())) {
-                player.sendMessage(Component.text("현재 위치한 월드는 삭제할 수 없습니다.", NamedTextColor.RED));
-            } else if (gameWorld.delete(world)) {
-                player.sendMessage(Component.text("월드를 삭제했습니다: " + args[2], NamedTextColor.GREEN));
-            } else {
-                player.sendMessage(Component.text("월드를 언로드하지 못했습니다: " + args[2], NamedTextColor.RED));
+            try {
+                var world = org.bukkit.Bukkit.getWorld(args[2]);
+                if (world == null) {
+                    player.sendMessage(Component.text("로드된 월드를 찾을 수 없습니다: " + args[2], NamedTextColor.RED));
+                } else if (world.equals(player.getWorld())) {
+                    player.sendMessage(Component.text("현재 위치한 월드는 삭제할 수 없습니다.", NamedTextColor.RED));
+                } else if (gameWorld.delete(world)) {
+                    player.sendMessage(Component.text("월드를 삭제했습니다: " + args[2], NamedTextColor.GREEN));
+                } else {
+                    player.sendMessage(Component.text("월드를 언로드하지 못했습니다: " + args[2], NamedTextColor.RED));
+                }
+            } catch (IllegalStateException exception) {
+                player.sendMessage(Component.text(exception.getMessage(), NamedTextColor.RED));
             }
             return true;
         }
@@ -137,7 +191,7 @@ public final class QuakeCommand implements TabExecutor {
             return true;
         }
         if (args.length != 2 || !args[0].equalsIgnoreCase("get") || !args[1].equalsIgnoreCase("book")) {
-            player.sendMessage(Component.text("사용법: /quake get book, /quake setTimer <seconds>, /quake setScore <score>, /quake world <create|delete|tp> ...", NamedTextColor.YELLOW));
+            player.sendMessage(Component.text("사용법: /quake get book, /quake setTimer <seconds>, /quake setScore <score>, /quake world <create|delete|tp> ..., /quake world players <name> <min> <max>, /quake world status <name> <ready|maintenance|disabled>, /quake world spawn <name> <red|blue>", NamedTextColor.YELLOW));
             return true;
         }
         if (game.isRunning() && game.contains(player)) {
@@ -149,7 +203,7 @@ public final class QuakeCommand implements TabExecutor {
     }
 
     private Component worldListEntry(org.bukkit.World world) {
-        Component worldName = Component.text(world.getName(), NamedTextColor.WHITE)
+        Component worldName = Component.text(gameWorld.displayName(world), NamedTextColor.WHITE)
                 .clickEvent(ClickEvent.callback(audience -> {
                     if (!(audience instanceof Player target)) {
                         return;
@@ -174,7 +228,7 @@ public final class QuakeCommand implements TabExecutor {
                 .hoverEvent(HoverEvent.showText(Component.text("클릭하여 이동", NamedTextColor.AQUA)));
         return Component.text("- ", NamedTextColor.GRAY)
                 .append(worldName)
-                .append(Component.text(" (" + world.getEnvironment() + ")", NamedTextColor.GRAY));
+                .append(Component.text(" [" + gameWorld.statusLabel(world) + "]", NamedTextColor.GRAY));
     }
 
     private void openCreateWorldDialog(Player player) {
@@ -198,7 +252,7 @@ public final class QuakeCommand implements TabExecutor {
                                             try {
                                                 gameWorld.create(name, owner.getUniqueId());
                                                 owner.sendMessage(Component.text(
-                                                        "월드를 생성했습니다: " + name, NamedTextColor.GREEN));
+                                                        "점검 중인 월드를 생성했습니다: " + name, NamedTextColor.GREEN));
                                             } catch (IllegalArgumentException | IllegalStateException exception) {
                                                 owner.sendMessage(Component.text(
                                                         exception.getMessage(), NamedTextColor.RED));
@@ -234,8 +288,19 @@ public final class QuakeCommand implements TabExecutor {
             return List.of("book");
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("world")) {
-            return List.of("create", "delete", "tp", "list").stream()
+            return List.of("create", "delete", "tp", "list", "players", "status", "spawn").stream()
                     .filter(option -> option.startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
+        }
+        if (args.length == 3 && args[0].equalsIgnoreCase("world")
+                && List.of("status", "spawn", "players").contains(args[1].toLowerCase(Locale.ROOT))) {
+            return gameWorld.list().stream().map(org.bukkit.World::getName)
+                    .filter(name -> name.startsWith(args[2])).toList();
+        }
+        if (args.length == 4 && args[0].equalsIgnoreCase("world")) {
+            List<String> options = args[1].equalsIgnoreCase("status")
+                    ? List.of("ready", "maintenance", "disabled")
+                    : args[1].equalsIgnoreCase("spawn") ? List.of("red", "blue") : List.of();
+            return options.stream().filter(option -> option.startsWith(args[3].toLowerCase(Locale.ROOT))).toList();
         }
         return List.of();
     }

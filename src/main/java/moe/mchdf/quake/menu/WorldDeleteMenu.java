@@ -53,7 +53,7 @@ public final class WorldDeleteMenu implements Listener {
         ItemStack item = new ItemStack(material);
         ItemMeta meta = item.getItemMeta();
         String suffix = world.equals(player.getWorld()) ? " (현재 월드)" : "";
-        meta.displayName(Component.text(world.getName() + suffix, NamedTextColor.WHITE));
+        meta.displayName(Component.text(gameWorld.displayName(world) + " [" + gameWorld.statusLabel(world) + "]" + suffix, NamedTextColor.WHITE));
         item.setItemMeta(meta);
         return item;
     }

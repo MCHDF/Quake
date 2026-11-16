@@ -1,6 +1,15 @@
 package moe.mchdf.quake.game;
 
-import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.List;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import moe.mchdf.quake.world.GameWorld;
+import moe.mchdf.quake.world.GameWorldInfo;
+import org.bukkit.Location;
+import org.bukkit.World;
 import java.util.Set;
 import java.util.UUID;
 import moe.mchdf.quake.item.RailGunItem;
@@ -13,10 +22,16 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class GameSession {
+    private static final int ROTATION_WAIT_SECONDS = 30;
     private final MenuBook book;
+    private final GameWorld worlds;
+    private GameWorldInfo currentWorld;
+    private final Deque<GameWorldInfo> upcomingWorlds = new ArrayDeque<>();
+    private int waitingRemaining;
+    private final Map<UUID, Location> returnLocations = new HashMap<>();
     // During a game, this set contains only the players who joined before it started.
-    private final Set<UUID> participants = new HashSet<>();
-    private final Set<UUID> nextGameQueue = new HashSet<>();
+    private final Set<UUID> participants = new LinkedHashSet<>();
+    private final Set<UUID> nextGameQueue = new LinkedHashSet<>();
     private final GameTeams gameTeams = new GameTeams();
     private final GameDisplay display = new GameDisplay();
     private final DoubleJump doubleJump = new DoubleJump();
@@ -24,11 +39,12 @@ public final class GameSession {
     private final GameSettings settings;
     private GameState state = GameState.WAITING;
 
-    public GameSession(JavaPlugin plugin, MenuBook book) {
+    public GameSession(JavaPlugin plugin, MenuBook book, GameWorld worlds) {
+        this.worlds = worlds;
         this.book = book;
         timer = new GameTimer(plugin);
         settings = new GameSettings(plugin);
-        showPlayerCount();
+        rotateWorld();
     }
 
     public GameState getState() {
@@ -71,14 +87,92 @@ public final class GameSession {
         settings.setDurationSeconds(seconds);
     }
 
+    public GameWorldInfo getCurrentWorld() {
+        return currentWorld;
+    }
+
+    private void rotateWorld() {
+        timer.cancel();
+        state = GameState.WAITING;
+        List<GameWorldInfo> ready = worlds.readyWorlds();
+        upcomingWorlds.removeIf(queued -> ready.stream().noneMatch(info -> sameRotationEntry(info, queued)));
+        for (GameWorldInfo info : ready) {
+            if (!sameRotationEntry(info, currentWorld)
+                    && upcomingWorlds.stream().noneMatch(queued -> sameRotationEntry(info, queued))) {
+                upcomingWorlds.addLast(info);
+            }
+        }
+        if (currentWorld != null) {
+            ready.stream().filter(info -> sameRotationEntry(info, currentWorld)).findFirst()
+                    .ifPresent(upcomingWorlds::addLast);
+        }
+        currentWorld = upcomingWorlds.pollFirst();
+        beginWaiting();
+    }
+
+    private boolean sameRotationEntry(GameWorldInfo first, GameWorldInfo second) {
+        return first != null && second != null && first.name().equals(second.name())
+                && first.worldUuid().equals(second.worldUuid()) && first.rotationOrder() == second.rotationOrder();
+    }
+
+    public void onWorldSettingsChanged() {
+        if (isRunning()) {
+            return;
+        }
+        if (!refreshCurrentWorld()) {
+            rotateWorld();
+        } else if (state == GameState.COUNTDOWN && participants.size() < currentWorld.minPlayers()) {
+            timer.cancel();
+            beginWaiting();
+        } else {
+            updateAfterJoin();
+        }
+    }
+
+    private boolean refreshCurrentWorld() {
+        if (currentWorld == null) {
+            return false;
+        }
+        GameWorldInfo fresh = worlds.readyWorlds().stream()
+                .filter(info -> sameRotationEntry(info, currentWorld))
+                .findFirst().orElse(null);
+        if (fresh == null) {
+            return false;
+        }
+        currentWorld = fresh;
+        return true;
+    }
+
+    private void beginWaiting() {
+        state = GameState.WAITING;
+        waitingRemaining = ROTATION_WAIT_SECONDS;
+        // This is distinct from the existing game-start countdown.
+        timer.start(ROTATION_WAIT_SECONDS, remaining -> {
+            waitingRemaining = remaining;
+            showPlayerCount();
+        }, this::rotateWorld);
+        updateAfterJoin();
+    }
+
     private void updateAfterJoin() {
         if (state != GameState.WAITING) {
             return;
         }
-        if (participants.size() >= GameSettings.MIN_PLAYERS) {
+        participants.removeIf(id -> Bukkit.getPlayer(id) == null);
+        if (currentWorld == null) {
+            if (!worlds.readyWorlds().isEmpty()) {
+                rotateWorld();
+            }
+            return;
+        }
+        if (!refreshCurrentWorld()) {
+            rotateWorld();
+            return;
+        }
+        if (participants.size() >= currentWorld.minPlayers()) {
             state = GameState.COUNTDOWN;
             timer.start(GameSettings.COUNTDOWN_SECONDS,
-                    remaining -> display.countdown(remaining, GameSettings.COUNTDOWN_SECONDS, participants),
+                    remaining -> display.countdown(currentWorld.displayName(), remaining, GameSettings.COUNTDOWN_SECONDS, participants),
                     this::startGame);
         } else {
             showPlayerCount();
@@ -112,25 +206,69 @@ public final class GameSession {
             return true;
         }
         // Any participant leaving resets the countdown; it restarts if the minimum is still met.
-        cancelCountdown();
-        showPlayerCount();
-        updateAfterJoin();
+        if (state == GameState.COUNTDOWN) {
+            timer.cancel();
+            beginWaiting();
+        } else {
+            showPlayerCount();
+        }
         return true;
     }
 
     private void showPlayerCount() {
-        display.waiting(participants.size(), GameSettings.MIN_PLAYERS);
+        if (currentWorld == null) {
+            display.noWorld();
+        } else {
+            display.rotating(currentWorld.displayName(), participants.size(), currentWorld.minPlayers(),
+                    currentWorld.maxPlayers(), waitingRemaining);
+        }
     }
 
     private void startGame() {
         // Drop participants who went offline without a quit event so team assignment cannot fail.
         participants.removeIf(playerId -> Bukkit.getPlayer(playerId) == null);
-        if (participants.size() < GameSettings.MIN_PLAYERS) {
-            state = GameState.WAITING;
-            showPlayerCount();
+        if (!refreshCurrentWorld()) {
+            rotateWorld();
             return;
         }
-        gameTeams.assign(participants);
+        if (participants.size() < currentWorld.minPlayers()) {
+            beginWaiting();
+            return;
+        }
+        List<UUID> selected = participants.stream().limit(currentWorld.maxPlayers()).toList();
+        // Assign teams before choosing each player's spawn, but restore scoreboards if a teleport fails.
+        gameTeams.assign(selected);
+        for (UUID id : selected) {
+            Player player = Bukkit.getPlayer(id);
+            returnLocations.put(id, player.getLocation());
+            if (!player.teleport(worlds.teamSpawn(currentWorld.name(), gameTeams.getTeamOf(player)))) {
+                gameTeams.clear();
+                returnPlayers();
+                for (UUID applicant : participants) {
+                    Player waiting = Bukkit.getPlayer(applicant);
+                    if (waiting != null) {
+                        waiting.sendMessage(Component.text("월드 이동에 실패하여 다음 월드를 선택합니다.", NamedTextColor.RED));
+                    }
+                }
+                rotateWorld();
+                return;
+            }
+        }
+        // Preserve application order; overflow waits for the next game.
+        int admitted = 0;
+        var applicants = participants.iterator();
+        while (applicants.hasNext()) {
+            UUID id = applicants.next();
+            if (++admitted > currentWorld.maxPlayers()) {
+                nextGameQueue.add(id);
+                applicants.remove();
+                Player player = Bukkit.getPlayer(id);
+                if (player != null) {
+                    display.hide(player);
+                    player.sendMessage(Component.text("이번 월드의 정원을 초과하여 다음 게임을 기다립니다.", NamedTextColor.YELLOW));
+                }
+            }
+        }
         state = GameState.RUNNING;
         gameTeams.setTargetScore(settings.targetScore());
         gameTeams.setTargetReachedListener(() -> finishGame(false));
@@ -171,10 +309,11 @@ public final class GameSession {
                 }
             }
         }
+        returnPlayers();
         participants.clear();
         state = GameState.WAITING;
-        showPlayerCount();
         promoteQueue(cancelled);
+        rotateWorld();
     }
 
     private void promoteQueue(boolean previousGameCancelled) {
@@ -189,7 +328,6 @@ public final class GameSession {
             }
         }
         nextGameQueue.clear();
-        updateAfterJoin();
         for (UUID playerId : participants) {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
@@ -198,9 +336,14 @@ public final class GameSession {
         }
     }
 
-    private void cancelCountdown() {
-        timer.cancel();
-        state = GameState.WAITING;
+    private void returnPlayers() {
+        returnLocations.forEach((id, location) -> {
+            Player player = Bukkit.getPlayer(id);
+            if (player != null) {
+                player.teleport(location);
+            }
+        });
+        returnLocations.clear();
     }
 
     public void shutdown() {
@@ -216,8 +359,10 @@ public final class GameSession {
                 book.giveMenuBook(player);
             }
         }
+        returnPlayers();
         participants.clear();
         nextGameQueue.clear();
+        upcomingWorlds.clear();
     }
 
     public DoubleJump getDoubleJump() {
