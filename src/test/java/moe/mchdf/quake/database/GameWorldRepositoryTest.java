@@ -93,8 +93,8 @@ class GameWorldRepositoryTest {
         assertEquals(12, stored.maxPlayers());
         assertEquals(4, stored.withWorldUuid(UUID.randomUUID()).minPlayers());
         repository.setPlayerLimits("arena", 2, 2);
-        repository.setPlayerLimits("arena", 16, 16);
-        assertEquals(16, open().findAll().getFirst().minPlayers());
+        repository.setPlayerLimits("arena", 4, 16);
+        assertEquals(4, open().findAll().getFirst().minPlayers());
     }
 
     @Test
@@ -102,7 +102,7 @@ class GameWorldRepositoryTest {
         GameWorldRepository repository = open();
         GameWorldInfo original = info("arena");
         repository.add(original);
-        int[][] invalid = {{0, 16}, {2, 18}, {3, 16}, {2, 15}, {12, 4}, {-2, 16}, {2, 0}};
+        int[][] invalid = {{0, 16}, {2, 18}, {3, 16}, {2, 15}, {6, 16}, {-2, 16}, {2, 0}};
         for (int[] limits : invalid) {
             assertThrows(IllegalArgumentException.class,
                     () -> original.withPlayerLimits(limits[0], limits[1]));
@@ -124,9 +124,9 @@ class GameWorldRepositoryTest {
                 assertThrows(java.sql.SQLException.class,
                         () -> statement.executeUpdate("UPDATE game_worlds SET " + assignment));
             }
-            statement.executeUpdate("UPDATE game_worlds SET max_players = 4");
             assertThrows(java.sql.SQLException.class,
                     () -> statement.executeUpdate("UPDATE game_worlds SET min_players = 6"));
+            statement.executeUpdate("UPDATE game_worlds SET max_players = 4");
         }
     }
 

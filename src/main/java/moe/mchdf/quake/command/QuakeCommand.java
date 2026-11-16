@@ -123,7 +123,7 @@ public final class QuakeCommand implements TabExecutor {
                 player.sendMessage(Component.text("월드 인원 설정을 저장했습니다: " + args[2]
                         + " (최소 " + min + "명, 최대 " + max + "명)", NamedTextColor.GREEN));
             } catch (NumberFormatException exception) {
-                player.sendMessage(Component.text("인원은 2~16 사이의 짝수로 입력해 주세요.", NamedTextColor.RED));
+                player.sendMessage(Component.text("최소 인원은 2명 또는 4명, 최대 인원은 2~16 사이의 짝수로 입력해 주세요.", NamedTextColor.RED));
             } catch (IllegalArgumentException | IllegalStateException exception) {
                 player.sendMessage(Component.text(exception.getMessage(), NamedTextColor.RED));
             }

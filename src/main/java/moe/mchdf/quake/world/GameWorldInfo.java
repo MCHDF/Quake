@@ -27,9 +27,9 @@ public record GameWorldInfo(String name, UUID worldUuid, String displayName,
     }
 
     public static void validatePlayerLimits(int minPlayers, int maxPlayers) {
-        if (minPlayers < 2 || maxPlayers > 16 || minPlayers > maxPlayers
-                || minPlayers % 2 != 0 || maxPlayers % 2 != 0) {
-            throw new IllegalArgumentException("인원은 2~16 사이의 짝수이며 최소 인원은 최대 인원 이하여야 합니다.");
+        if ((minPlayers != 2 && minPlayers != 4) || maxPlayers < 2 || maxPlayers > 16
+                || minPlayers > maxPlayers || maxPlayers % 2 != 0) {
+            throw new IllegalArgumentException("최소 인원은 2명 또는 4명이며 최대 인원은 2~16 사이의 짝수여야 합니다.");
         }
     }
 

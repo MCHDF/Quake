@@ -47,7 +47,7 @@ public final class GameWorldRepository {
                 }
                 if (!columns.contains("min_players")) {
                     statement.executeUpdate("ALTER TABLE game_worlds ADD COLUMN min_players INTEGER NOT NULL DEFAULT 2 "
-                            + "CHECK (typeof(min_players) = 'integer' AND min_players BETWEEN 2 AND 16 AND min_players % 2 = 0)");
+                            + "CHECK (typeof(min_players) = 'integer' AND min_players IN (2, 4))");
                 }
                 if (!columns.contains("max_players")) {
                     statement.executeUpdate("ALTER TABLE game_worlds ADD COLUMN max_players INTEGER NOT NULL DEFAULT 16 "
@@ -87,7 +87,7 @@ public final class GameWorldRepository {
                                     CHECK (status IN ('READY', 'MAINTENANCE', 'DISABLED')),
                                 created_at TEXT, created_by TEXT,
                                 min_players INTEGER NOT NULL DEFAULT 2
-                                    CHECK (typeof(min_players) = 'integer' AND min_players BETWEEN 2 AND 16 AND min_players % 2 = 0),
+                                    CHECK (typeof(min_players) = 'integer' AND min_players IN (2, 4)),
                                 max_players INTEGER NOT NULL DEFAULT 16
                                     CHECK (typeof(max_players) = 'integer' AND max_players BETWEEN 2 AND 16
                                         AND max_players % 2 = 0 AND min_players <= max_players),
@@ -103,6 +103,23 @@ public final class GameWorldRepository {
                     statement.executeUpdate("DROP TABLE game_worlds");
                     statement.executeUpdate("ALTER TABLE game_worlds_updated RENAME TO game_worlds");
                 }
+                statement.executeUpdate("UPDATE game_worlds SET min_players = 4 WHERE min_players > 4");
+                statement.executeUpdate("""
+                        CREATE TRIGGER IF NOT EXISTS game_worlds_min_players_insert
+                        BEFORE INSERT ON game_worlds
+                        WHEN NEW.min_players NOT IN (2, 4)
+                        BEGIN
+                            SELECT RAISE(ABORT, 'min_players must be 2 or 4');
+                        END
+                        """);
+                statement.executeUpdate("""
+                        CREATE TRIGGER IF NOT EXISTS game_worlds_min_players_update
+                        BEFORE UPDATE OF min_players ON game_worlds
+                        WHEN NEW.min_players NOT IN (2, 4)
+                        BEGIN
+                            SELECT RAISE(ABORT, 'min_players must be 2 or 4');
+                        END
+                        """);
                 statement.executeUpdate("CREATE UNIQUE INDEX IF NOT EXISTS game_worlds_uuid ON game_worlds(world_uuid)");
                 connection.commit();
             } catch (SQLException exception) {
