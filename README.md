@@ -57,35 +57,3 @@ Windows에서는 `./gradlew` 대신 `.\gradlew.bat`을 사용합니다.
 ```
 
 월드 생성 이름에는 영문, 숫자, `_`, `-`만 사용할 수 있습니다. 삭제할 월드에는 다른 플레이어가 없어야 하며, 현재 위치한 월드는 삭제할 수 없습니다.
-
-## SSH 서버에 배포
-
-패스워드 인증을 사용하려면 `gradle.properties`에 다음 값을 설정한 뒤 빌드와 업로드를 실행할 수 있습니다.
-
-```properties
-quakeDeployHost=example.com
-quakeDeployUser=minecraft
-quakeDeployPath=/opt/minecraft/plugins/Quake-1.0.0-all.jar
-quakeDeployPort=22
-quakeDeployPassword=비밀번호
-```
-
-또는 환경변수(`QUAKE_DEPLOY_*`)를 사용할 수 있으며, 환경변수가 `gradle.properties`보다 우선합니다.
-
-```bash
-export QUAKE_DEPLOY_HOST=example.com
-export QUAKE_DEPLOY_USER=minecraft
-export QUAKE_DEPLOY_PATH=/opt/minecraft/plugins/Quake-1.0.0-all.jar
-
-./gradlew clean uploadShadowJar
-```
-
-비밀번호는 프로젝트 파일보다 `~/.gradle/gradle.properties` 또는 환경변수에 저장하는 것을 권장합니다.
-
-```bash
-brew install sshpass
-export QUAKE_DEPLOY_PASSWORD='비밀번호'
-./gradlew clean uploadShadowJar
-```
-
-업로드는 항상 `sshpass -e scp`를 사용합니다. 실제 서버 정보와 비밀번호가 포함된 파일은 저장소에 커밋하지 마세요.
