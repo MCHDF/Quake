@@ -2,6 +2,7 @@ package moe.mchdf.quake;
 
 import java.util.Objects;
 import moe.mchdf.quake.command.QuakeCommand;
+import moe.mchdf.quake.database.DatabaseManager;
 import moe.mchdf.quake.game.GameSession;
 import moe.mchdf.quake.listener.PlayerListener;
 import moe.mchdf.quake.menu.MenuBook;
@@ -20,9 +21,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class Quake extends JavaPlugin {
     private GameSession game;
     private GameWorld gameWorld;
+    private DatabaseManager database;
 
     @Override
     public void onEnable() {
+        database = new DatabaseManager(this);
         gameWorld = new GameWorld(this);
         getServer().getPluginManager().registerEvents(new GameWorldListener(gameWorld), this);
         MenuBook book = new MenuBook(this);
@@ -52,7 +55,14 @@ public final class Quake extends JavaPlugin {
         if (game != null) {
             game.shutdown();
         }
+        if (gameWorld != null) {
+            gameWorld.saveAll();
+        }
+        if (database != null) {
+            database.close();
+        }
         gameWorld = null;
+        database = null;
         // Plugin shutdown logic
         getComponentLogger().info(
                 Component.text("MCHDF Quake 플러그인이 비활성화 되었습니다.", NamedTextColor.RED, TextDecoration.BOLD)
@@ -64,5 +74,12 @@ public final class Quake extends JavaPlugin {
             throw new IllegalStateException("Game world has not been loaded yet.");
         }
         return gameWorld;
+    }
+
+    public DatabaseManager getDatabase() {
+        if (database == null) {
+            throw new IllegalStateException("Database has not been initialized yet.");
+        }
+        return database;
     }
 }

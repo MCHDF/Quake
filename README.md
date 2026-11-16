@@ -33,6 +33,7 @@ Paper 서버용 미니게임 플러그인입니다. 현재 참여 메뉴와 시�
 - `game/GameSettings`: 최소 인원·카운트다운 설정, 게임 시간 조회·저장
 - `game/GameTeams`: 팀 배정, 상대 팀 닉네임 숨김, 스코어보드 복원
 - `command/QuakeCommand`: 관리자 명령어 처리
+- `database/DatabaseManager`: HikariCP 기반 SQLite 연결 풀 관리
 - `Quake`: 구성 요소 생성과 등록, 종료 시 정리
 
 ## 빌드 및 실행
@@ -44,7 +45,7 @@ Paper 서버용 미니게임 플러그인입니다. 현재 참여 메뉴와 시�
 
 Windows에서는 `./gradlew` 대신 `.\gradlew.bat`을 사용합니다.
 
-빌드 결과: `build/libs/OneShot-MCHDF.jar` — Paper 서버의 `plugins` 폴더에 넣어 사용합니다.
+빌드 결과: `build/libs/Quake-1.0.0-all.jar` — Paper 서버의 `plugins` 폴더에 넣어 사용합니다.
 
 게임 월드는 게임 내에서 관리자 명령어로 생성·삭제·이동할 수 있습니다.
 
@@ -56,3 +57,35 @@ Windows에서는 `./gradlew` 대신 `.\gradlew.bat`을 사용합니다.
 ```
 
 월드 생성 이름에는 영문, 숫자, `_`, `-`만 사용할 수 있습니다. 삭제할 월드에는 다른 플레이어가 없어야 하며, 현재 위치한 월드는 삭제할 수 없습니다.
+
+## SSH 서버에 배포
+
+패스워드 인증을 사용하려면 `gradle.properties`에 다음 값을 설정한 뒤 빌드와 업로드를 실행할 수 있습니다.
+
+```properties
+quakeDeployHost=example.com
+quakeDeployUser=minecraft
+quakeDeployPath=/opt/minecraft/plugins/Quake-1.0.0-all.jar
+quakeDeployPort=22
+quakeDeployPassword=비밀번호
+```
+
+또는 환경변수(`QUAKE_DEPLOY_*`)를 사용할 수 있으며, 환경변수가 `gradle.properties`보다 우선합니다.
+
+```bash
+export QUAKE_DEPLOY_HOST=example.com
+export QUAKE_DEPLOY_USER=minecraft
+export QUAKE_DEPLOY_PATH=/opt/minecraft/plugins/Quake-1.0.0-all.jar
+
+./gradlew clean uploadShadowJar
+```
+
+비밀번호는 프로젝트 파일보다 `~/.gradle/gradle.properties` 또는 환경변수에 저장하는 것을 권장합니다.
+
+```bash
+brew install sshpass
+export QUAKE_DEPLOY_PASSWORD='비밀번호'
+./gradlew clean uploadShadowJar
+```
+
+업로드는 항상 `sshpass -e scp`를 사용합니다. 실제 서버 정보와 비밀번호가 포함된 파일은 저장소에 커밋하지 마세요.

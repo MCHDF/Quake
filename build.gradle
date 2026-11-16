@@ -16,6 +16,8 @@ repositories {
 
 dependencies {
     compileOnly 'io.papermc.paper:paper-api:26.3.build.+'
+    implementation 'com.zaxxer:HikariCP:6.3.0'
+    implementation 'org.xerial:sqlite-jdbc:3.50.3.0'
     testImplementation 'io.papermc.paper:paper-api:26.3.build.+'
     testImplementation 'org.junit.jupiter:junit-jupiter:5.12.2'
     testImplementation 'org.mockito:mockito-core:5.20.0'
@@ -32,6 +34,49 @@ java {
 
 tasks.named('build') {
     dependsOn tasks.named('shadowJar')
+}
+
+tasks.register('uploadShadowJar') {
+    group = 'deployment'
+    description = 'Uploads the shadow JAR to a remote Paper server over SCP.'
+    notCompatibleWithConfigurationCache('Reads deployment settings during upload.')
+    dependsOn tasks.named('shadowJar')
+
+    doLast {
+        def deployValue = { String propertyName, String environmentName ->
+            providers.environmentVariable(environmentName)
+                    .orElse(providers.gradleProperty(propertyName))
+                    .orNull
+        }
+        def host = deployValue('quakeDeployHost', 'QUAKE_DEPLOY_HOST')
+        def user = deployValue('quakeDeployUser', 'QUAKE_DEPLOY_USER')
+        def remotePath = deployValue('quakeDeployPath', 'QUAKE_DEPLOY_PATH')
+        def port = deployValue('quakeDeployPort', 'QUAKE_DEPLOY_PORT')
+        def password = deployValue('quakeDeployPassword', 'QUAKE_DEPLOY_PASSWORD')
+
+        if (!host || !user || !remotePath || !password) {
+            throw new GradleException(
+                    'Set host, user, path, and password in gradle.properties or with QUAKE_DEPLOY_* environment variables.'
+            )
+        }
+
+        def artifact = tasks.named('shadowJar').get().archiveFile.get().asFile
+        def arguments = []
+        if (port) {
+            arguments += ['-P', port]
+        }
+        arguments += [artifact.absolutePath, "${user}@${host}:${remotePath}"]
+
+        def command = (['sshpass', '-e', 'scp'] + arguments)
+                .collect { it.toString() } as String[]
+        def processBuilder = new ProcessBuilder(command)
+        processBuilder.environment().put('SSHPASS', password)
+        def process = processBuilder.inheritIO().start()
+        if (process.waitFor() != 0) {
+            throw new GradleException('SCP upload failed.')
+        }
+        logger.lifecycle("Uploaded ${artifact.name} to ${user}@${host}:${remotePath}")
+    }
 }
 
 tasks.named('runServer') {

@@ -41,6 +41,7 @@ public final class GameWorld {
         world.setTime(6000);
         world.setSpawnLocation(0, 65, 0);
         gameWorlds.add(world.getName());
+        world.save(true);
         plugin.getComponentLogger().info("Quake 게임 월드를 생성했습니다: " + name);
         return world;
     }
@@ -51,6 +52,16 @@ public final class GameWorld {
 
     public boolean isGameWorld(World world) {
         return gameWorlds.contains(world.getName());
+    }
+
+    public void saveAll() {
+        for (String worldName : gameWorlds) {
+            World world = Bukkit.getWorld(worldName);
+            if (world != null) {
+                world.save(true);
+                plugin.getComponentLogger().info("Quake 게임 월드를 저장했습니다: " + worldName);
+            }
+        }
     }
 
     public boolean delete(World world) {
