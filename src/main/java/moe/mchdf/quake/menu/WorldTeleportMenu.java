@@ -73,6 +73,8 @@ public final class WorldTeleportMenu implements Listener {
         World world = Bukkit.getWorld(worldName);
         if (world == null) {
             player.sendMessage(Component.text("월드가 언로드되었습니다: " + worldName, NamedTextColor.RED));
+        } else if (!gameWorld.isGameWorld(world)) {
+            player.sendMessage(Component.text("등록된 게임 월드가 아닙니다: " + worldName, NamedTextColor.RED));
         } else {
             player.teleport(world.getSpawnLocation());
             player.sendMessage(Component.text("월드로 이동했습니다: " + worldName, NamedTextColor.GREEN));

@@ -79,23 +79,23 @@ public final class GameWorld {
         if (world == null) {
             throw new IllegalStateException("월드를 생성하지 못했습니다: " + name);
         }
-        world.setGameRule(org.bukkit.GameRule.DO_DAYLIGHT_CYCLE, false);
-        world.setGameRule(org.bukkit.GameRule.DO_WEATHER_CYCLE, false);
-        world.setGameRule(org.bukkit.GameRule.DO_MOB_SPAWNING, false);
-        world.setTime(6000);
-        world.setSpawnLocation(0, 65, 0);
-        world.save(true);
-        GameWorldInfo info = new GameWorldInfo(world.getName(), world.getUID(), world.getName(),
-                GameWorldStatus.MAINTENANCE, Instant.now(), createdBy);
         try {
+            world.setGameRule(org.bukkit.GameRule.DO_DAYLIGHT_CYCLE, false);
+            world.setGameRule(org.bukkit.GameRule.DO_WEATHER_CYCLE, false);
+            world.setGameRule(org.bukkit.GameRule.DO_MOB_SPAWNING, false);
+            world.setTime(6000);
+            world.setSpawnLocation(0, 65, 0);
+            world.save(true);
+            GameWorldInfo info = new GameWorldInfo(world.getName(), world.getUID(), world.getName(),
+                    GameWorldStatus.MAINTENANCE, Instant.now(), createdBy);
             repository.add(info);
-        } catch (IllegalStateException exception) {
+            gameWorlds.put(world.getName(), info);
+            plugin.getComponentLogger().info("Quake 게임 월드를 생성했습니다: " + name);
+            return world;
+        } catch (RuntimeException exception) {
             Bukkit.unloadWorld(world, true);
             throw exception;
         }
-        gameWorlds.put(world.getName(), info);
-        plugin.getComponentLogger().info("Quake 게임 월드를 생성했습니다: " + name);
-        return world;
     }
 
     public List<World> list() {
