@@ -7,6 +7,7 @@ import io.papermc.paper.registry.data.dialog.action.DialogAction;
 import io.papermc.paper.registry.data.dialog.input.DialogInput;
 import io.papermc.paper.registry.data.dialog.body.DialogBody;
 import io.papermc.paper.registry.data.dialog.type.DialogType;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import moe.mchdf.quake.game.GameSession;
@@ -27,6 +28,19 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class QuakeCommand implements TabExecutor {
+    private enum WorldSubcommand {
+        CREATE, DELETE, TP, LIST, PLAYERS, STATUS, SPAWN;
+
+        static WorldSubcommand parse(String input) {
+            for (WorldSubcommand subcommand : values()) {
+                if (subcommand.name().equalsIgnoreCase(input)) {
+                    return subcommand;
+                }
+            }
+            return null;
+        }
+    }
+
     private final MenuBook book;
     private final GameSession game;
     private final GameWorld gameWorld;
@@ -80,114 +94,7 @@ public final class QuakeCommand implements TabExecutor {
             player.sendMessage(Component.text("승점 기준을 " + score + "점으로 설정했습니다. 다음 게임부터 적용됩니다.", NamedTextColor.GREEN));
             return true;
         }
-        if (args.length == 4 && args[0].equalsIgnoreCase("world")
-                && args[1].equalsIgnoreCase("status")) {
-            try {
-                GameWorldStatus status;
-                try {
-                    status = GameWorldStatus.valueOf(args[3].toUpperCase(Locale.ROOT));
-                } catch (IllegalArgumentException exception) {
-                    throw new IllegalArgumentException("상태는 ready, maintenance, disabled 중 하나로 입력해 주세요.");
-                }
-                gameWorld.setStatus(args[2], status);
-                game.onWorldSettingsChanged();
-                player.sendMessage(Component.text("월드 상태를 변경했습니다: " + args[2] + " → " + status,
-                        NamedTextColor.GREEN));
-            } catch (IllegalArgumentException | IllegalStateException exception) {
-                player.sendMessage(Component.text(exception.getMessage(), NamedTextColor.RED));
-            }
-            return true;
-        }
-        if (args.length == 4 && args[0].equalsIgnoreCase("world")
-                && args[1].equalsIgnoreCase("spawn")) {
-            try {
-                if (game.isRunning() && game.getCurrentWorld().name().equals(args[2])) {
-                    throw new IllegalArgumentException("게임 진행 중인 월드의 스폰은 변경할 수 없습니다.");
-                }
-                String team = args[3].toUpperCase(Locale.ROOT);
-                gameWorld.setSpawn(args[2], team, player.getLocation());
-                player.sendMessage(Component.text(args[2] + "의 " + team
-                        + " 스폰을 현재 위치와 시선 방향으로 저장했습니다.", NamedTextColor.GREEN));
-            } catch (IllegalArgumentException | IllegalStateException exception) {
-                player.sendMessage(Component.text(exception.getMessage(), NamedTextColor.RED));
-            }
-            return true;
-        }
-        if (args.length == 5 && args[0].equalsIgnoreCase("world")
-                && args[1].equalsIgnoreCase("players")) {
-            try {
-                int min = Integer.parseInt(args[3]);
-                int max = Integer.parseInt(args[4]);
-                gameWorld.setPlayerLimits(args[2], min, max);
-                game.onWorldSettingsChanged();
-                player.sendMessage(Component.text("월드 인원 설정을 저장했습니다: " + args[2]
-                        + " (최소 " + min + "명, 최대 " + max + "명)", NamedTextColor.GREEN));
-            } catch (NumberFormatException exception) {
-                player.sendMessage(Component.text("최소 인원은 2명 또는 4명, 최대 인원은 2~16 사이의 짝수로 입력해 주세요.", NamedTextColor.RED));
-            } catch (IllegalArgumentException | IllegalStateException exception) {
-                player.sendMessage(Component.text(exception.getMessage(), NamedTextColor.RED));
-            }
-            return true;
-        }
-        if (args.length == 2 && args[0].equalsIgnoreCase("world") && args[1].equalsIgnoreCase("create")) {
-            openCreateWorldDialog(player);
-            return true;
-        }
-        if (args.length == 2 && args[0].equalsIgnoreCase("world")
-                && args[1].equalsIgnoreCase("delete")) {
-            worldDeleteMenu.open(player);
-            return true;
-        }
-        if (args.length == 2 && args[0].equalsIgnoreCase("world")
-                && args[1].equalsIgnoreCase("tp")) {
-            worldTeleportMenu.open(player);
-            return true;
-        }
-        if (args.length == 2 && args[0].equalsIgnoreCase("world")
-                && args[1].equalsIgnoreCase("list")) {
-            player.sendMessage(Component.text("등록된 게임 월드 목록 (클릭하여 이동 가능):", NamedTextColor.GREEN));
-            for (var world : gameWorld.list()) {
-                player.sendMessage(worldListEntry(world));
-            }
-            return true;
-        }
-        if (args.length == 3 && args[0].equalsIgnoreCase("world")
-                && args[1].equalsIgnoreCase("create")) {
-            try {
-                gameWorld.create(args[2], player.getUniqueId());
-                player.sendMessage(Component.text("점검 중인 월드를 생성했습니다: " + args[2], NamedTextColor.GREEN));
-            } catch (IllegalArgumentException | IllegalStateException exception) {
-                player.sendMessage(Component.text(exception.getMessage(), NamedTextColor.RED));
-            }
-            return true;
-        }
-        if (args.length == 3 && args[0].equalsIgnoreCase("world")
-                && args[1].equalsIgnoreCase("delete")) {
-            try {
-                var world = org.bukkit.Bukkit.getWorld(args[2]);
-                if (world == null) {
-                    player.sendMessage(Component.text("로드된 월드를 찾을 수 없습니다: " + args[2], NamedTextColor.RED));
-                } else if (world.equals(player.getWorld())) {
-                    player.sendMessage(Component.text("현재 위치한 월드는 삭제할 수 없습니다.", NamedTextColor.RED));
-                } else if (gameWorld.delete(world)) {
-                    player.sendMessage(Component.text("월드를 삭제했습니다: " + args[2], NamedTextColor.GREEN));
-                } else {
-                    player.sendMessage(Component.text("월드를 언로드하지 못했습니다: " + args[2], NamedTextColor.RED));
-                }
-            } catch (IllegalStateException exception) {
-                player.sendMessage(Component.text(exception.getMessage(), NamedTextColor.RED));
-            }
-            return true;
-        }
-        if (args.length == 3 && args[0].equalsIgnoreCase("world")
-                && args[1].equalsIgnoreCase("tp")) {
-            var world = org.bukkit.Bukkit.getWorld(args[2]);
-            if (world == null) {
-                player.sendMessage(Component.text("로드된 월드를 찾을 수 없습니다: " + args[2], NamedTextColor.RED));
-            } else {
-                player.teleport(world.getSpawnLocation());
-                player.sendMessage(Component.text("월드로 이동했습니다: " + args[2], NamedTextColor.GREEN));
-            }
+        if (args.length >= 2 && args[0].equalsIgnoreCase("world") && executeWorldCommand(player, args)) {
             return true;
         }
         if (args.length != 2 || !args[0].equalsIgnoreCase("get") || !args[1].equalsIgnoreCase("book")) {
@@ -199,6 +106,151 @@ public final class QuakeCommand implements TabExecutor {
             return true;
         }
         book.giveMenuBook(player, true);
+        return true;
+    }
+
+    private boolean executeWorldCommand(Player player, String[] args) {
+        WorldSubcommand subcommand = WorldSubcommand.parse(args[1]);
+        if (subcommand == null) {
+            return false;
+        }
+        return switch (subcommand) {
+            case CREATE -> createWorld(player, args);
+            case DELETE -> deleteWorld(player, args);
+            case TP -> tpWorld(player, args);
+            case LIST -> listWorld(player, args);
+            case PLAYERS -> playersWorld(player, args);
+            case STATUS -> statusWorld(player, args);
+            case SPAWN -> spawnWorld(player, args);
+        };
+    }
+
+    private boolean createWorld(Player player, String[] args) {
+        if (args.length == 2) {
+            openCreateWorldDialog(player);
+            return true;
+        }
+        if (args.length != 3) {
+            return false;
+        }
+        try {
+            gameWorld.create(args[2], player.getUniqueId());
+            player.sendMessage(Component.text("점검 중인 월드를 생성했습니다: " + args[2], NamedTextColor.GREEN));
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            player.sendMessage(Component.text(exception.getMessage(), NamedTextColor.RED));
+        }
+        return true;
+    }
+
+    private boolean deleteWorld(Player player, String[] args) {
+        if (args.length == 2) {
+            worldDeleteMenu.open(player);
+            return true;
+        }
+        if (args.length != 3) {
+            return false;
+        }
+        try {
+            var world = org.bukkit.Bukkit.getWorld(args[2]);
+            if (world == null) {
+                player.sendMessage(Component.text("로드된 월드를 찾을 수 없습니다: " + args[2], NamedTextColor.RED));
+            } else if (world.equals(player.getWorld())) {
+                player.sendMessage(Component.text("현재 위치한 월드는 삭제할 수 없습니다.", NamedTextColor.RED));
+            } else if (gameWorld.delete(world)) {
+                player.sendMessage(Component.text("월드를 삭제했습니다: " + args[2], NamedTextColor.GREEN));
+            } else {
+                player.sendMessage(Component.text("월드를 언로드하지 못했습니다: " + args[2], NamedTextColor.RED));
+            }
+        } catch (IllegalStateException exception) {
+            player.sendMessage(Component.text(exception.getMessage(), NamedTextColor.RED));
+        }
+        return true;
+    }
+
+    private boolean tpWorld(Player player, String[] args) {
+        if (args.length == 2) {
+            worldTeleportMenu.open(player);
+            return true;
+        }
+        if (args.length != 3) {
+            return false;
+        }
+        var world = org.bukkit.Bukkit.getWorld(args[2]);
+        if (world == null) {
+            player.sendMessage(Component.text("로드된 월드를 찾을 수 없습니다: " + args[2], NamedTextColor.RED));
+        } else {
+            player.teleport(world.getSpawnLocation());
+            player.sendMessage(Component.text("월드로 이동했습니다: " + args[2], NamedTextColor.GREEN));
+        }
+        return true;
+    }
+
+    private boolean listWorld(Player player, String[] args) {
+        if (args.length != 2) {
+            return false;
+        }
+        player.sendMessage(Component.text("등록된 게임 월드 목록 (클릭하여 이동 가능):", NamedTextColor.GREEN));
+        for (var world : gameWorld.list()) {
+            player.sendMessage(worldListEntry(world));
+        }
+        return true;
+    }
+
+    private boolean playersWorld(Player player, String[] args) {
+        if (args.length != 5) {
+            return false;
+        }
+        try {
+            int min = Integer.parseInt(args[3]);
+            int max = Integer.parseInt(args[4]);
+            gameWorld.setPlayerLimits(args[2], min, max);
+            game.onWorldSettingsChanged();
+            player.sendMessage(Component.text("월드 인원 설정을 저장했습니다: " + args[2]
+                    + " (최소 " + min + "명, 최대 " + max + "명)", NamedTextColor.GREEN));
+        } catch (NumberFormatException exception) {
+            player.sendMessage(Component.text("최소 인원은 2명 또는 4명, 최대 인원은 2~16 사이의 짝수로 입력해 주세요.", NamedTextColor.RED));
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            player.sendMessage(Component.text(exception.getMessage(), NamedTextColor.RED));
+        }
+        return true;
+    }
+
+    private boolean statusWorld(Player player, String[] args) {
+        if (args.length != 4) {
+            return false;
+        }
+        try {
+            GameWorldStatus status;
+            try {
+                status = GameWorldStatus.valueOf(args[3].toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException exception) {
+                throw new IllegalArgumentException("상태는 ready, maintenance, disabled 중 하나로 입력해 주세요.");
+            }
+            gameWorld.setStatus(args[2], status);
+            game.onWorldSettingsChanged();
+            player.sendMessage(Component.text("월드 상태를 변경했습니다: " + args[2] + " → " + status,
+                    NamedTextColor.GREEN));
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            player.sendMessage(Component.text(exception.getMessage(), NamedTextColor.RED));
+        }
+        return true;
+    }
+
+    private boolean spawnWorld(Player player, String[] args) {
+        if (args.length != 4) {
+            return false;
+        }
+        try {
+            if (game.isRunning() && game.getCurrentWorld().name().equals(args[2])) {
+                throw new IllegalArgumentException("게임 진행 중인 월드의 스폰은 변경할 수 없습니다.");
+            }
+            String team = args[3].toUpperCase(Locale.ROOT);
+            gameWorld.setSpawn(args[2], team, player.getLocation());
+            player.sendMessage(Component.text(args[2] + "의 " + team
+                    + " 스폰을 현재 위치와 시선 방향으로 저장했습니다.", NamedTextColor.GREEN));
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            player.sendMessage(Component.text(exception.getMessage(), NamedTextColor.RED));
+        }
         return true;
     }
 
@@ -287,19 +339,30 @@ public final class QuakeCommand implements TabExecutor {
                 && "book".startsWith(args[1].toLowerCase(Locale.ROOT))) {
             return List.of("book");
         }
-        if (args.length == 2 && args[0].equalsIgnoreCase("world")) {
-            return List.of("create", "delete", "tp", "list", "players", "status", "spawn").stream()
+        if (args.length >= 2 && args[0].equalsIgnoreCase("world")) {
+            return completeWorldCommand(args);
+        }
+        return List.of();
+    }
+
+    private List<String> completeWorldCommand(String[] args) {
+        if (args.length == 2) {
+            return Arrays.stream(WorldSubcommand.values())
+                    .map(subcommand -> subcommand.name().toLowerCase(Locale.ROOT))
                     .filter(option -> option.startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
         }
-        if (args.length == 3 && args[0].equalsIgnoreCase("world")
-                && List.of("status", "spawn", "players").contains(args[1].toLowerCase(Locale.ROOT))) {
+        WorldSubcommand subcommand = WorldSubcommand.parse(args[1]);
+        if (args.length == 3 && (subcommand == WorldSubcommand.STATUS
+                || subcommand == WorldSubcommand.SPAWN || subcommand == WorldSubcommand.PLAYERS)) {
             return gameWorld.list().stream().map(org.bukkit.World::getName)
                     .filter(name -> name.startsWith(args[2])).toList();
         }
-        if (args.length == 4 && args[0].equalsIgnoreCase("world")) {
-            List<String> options = args[1].equalsIgnoreCase("status")
-                    ? List.of("ready", "maintenance", "disabled")
-                    : args[1].equalsIgnoreCase("spawn") ? List.of("red", "blue") : List.of();
+        if (args.length == 4) {
+            List<String> options = switch (subcommand) {
+                case STATUS -> List.of("ready", "maintenance", "disabled");
+                case SPAWN -> List.of("red", "blue");
+                case null, default -> List.of();
+            };
             return options.stream().filter(option -> option.startsWith(args[3].toLowerCase(Locale.ROOT))).toList();
         }
         return List.of();
