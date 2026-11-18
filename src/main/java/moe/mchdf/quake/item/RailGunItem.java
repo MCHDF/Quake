@@ -9,13 +9,14 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 public final class RailGunItem {
+    public static final Material MATERIAL = Material.IRON_HOE;
     public static final String DISPLAY_NAME = "RailGun";
 
     private RailGunItem() {
     }
 
     public static ItemStack create() {
-        ItemStack item = new ItemStack(Material.IRON_SHOVEL);
+        ItemStack item = new ItemStack(MATERIAL);
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
             meta.displayName(Component.text(DISPLAY_NAME, NamedTextColor.GOLD, TextDecoration.BOLD));
@@ -25,7 +26,7 @@ public final class RailGunItem {
     }
 
     public static boolean isRailGun(ItemStack item) {
-        if (item == null || item.getType() != Material.IRON_SHOVEL) {
+        if (item == null || item.getType() != MATERIAL) {
             return false;
         }
         ItemMeta meta = item.getItemMeta();

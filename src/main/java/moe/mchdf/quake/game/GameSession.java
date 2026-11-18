@@ -21,12 +21,14 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public final class GameSession {
     private static final int ROTATION_WAIT_SECONDS = 30;
+    private static final float WALK_SPEED_MULTIPLIER = 2.0F;
     private final MenuBook book;
     private final GameWorld worlds;
     private GameWorldInfo currentWorld;
     private final WorldRotation worldRotation = new WorldRotation();
     private int waitingRemaining;
     private final Map<UUID, Location> returnLocations = new HashMap<>();
+    private final Map<UUID, Float> previousWalkSpeeds = new HashMap<>();
     // During a game, this set contains only the players who joined before it started.
     private final Set<UUID> participants = new LinkedHashSet<>();
     private final Set<UUID> nextGameQueue = new LinkedHashSet<>();
@@ -178,6 +180,7 @@ public final class GameSession {
             return false;
         }
         doubleJump.disable(player);
+        restoreWalkSpeed(player);
         display.hide(player);
         if (state == GameState.RUNNING) {
             gameTeams.remove(player);
@@ -261,6 +264,9 @@ public final class GameSession {
                 RailGunItem.removeFromInventory(player);
                 player.getInventory().addItem(RailGunItem.create());
                 doubleJump.enable(player);
+                float walkSpeed = player.getWalkSpeed();
+                previousWalkSpeeds.put(playerId, walkSpeed);
+                player.setWalkSpeed(Math.max(-1.0F, Math.min(1.0F, walkSpeed * WALK_SPEED_MULTIPLIER)));
             }
         }
         // Capture the duration so configuration changes apply only to the next game.
@@ -272,6 +278,13 @@ public final class GameSession {
                 () -> finishGame(false));
     }
 
+    private void restoreWalkSpeed(Player player) {
+        Float walkSpeed = previousWalkSpeeds.remove(player.getUniqueId());
+        if (walkSpeed != null) {
+            player.setWalkSpeed(walkSpeed);
+        }
+    }
+
     private void finishGame(boolean cancelled) {
         timer.cancel();
         gameTeams.clear();
@@ -279,6 +292,7 @@ public final class GameSession {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
                 doubleJump.disable(player);
+                restoreWalkSpeed(player);
                 RailGunItem.removeFromInventory(player);
                 display.hide(player);
                 player.sendMessage(Component.text(cancelled
@@ -290,6 +304,7 @@ public final class GameSession {
                 }
             }
         }
+        previousWalkSpeeds.clear();
         returnPlayers();
         participants.clear();
         state = GameState.WAITING;
@@ -335,11 +350,13 @@ public final class GameSession {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
                 doubleJump.disable(player);
+                restoreWalkSpeed(player);
                 RailGunItem.removeFromInventory(player);
                 display.hide(player);
                 book.giveMenuBook(player);
             }
         }
+        previousWalkSpeeds.clear();
         returnPlayers();
         participants.clear();
         nextGameQueue.clear();

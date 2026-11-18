@@ -2,7 +2,10 @@ package moe.mchdf.quake.world;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.regex.Pattern;
 import java.util.Comparator;
 import java.util.List;
 import java.util.HashMap;
@@ -11,6 +14,7 @@ import java.util.UUID;
 import java.time.Instant;
 import moe.mchdf.quake.database.GameWorldRepository;
 import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.Location;
 import org.bukkit.WorldCreator;
@@ -38,14 +42,13 @@ public final class GameWorld {
                 continue;
             }
             World loaded = Bukkit.getWorld(name);
-            Path folder = Bukkit.getWorldContainer().toPath().resolve(name);
-            if (loaded == null && !Files.isRegularFile(folder.resolve("level.dat"))) {
-                plugin.getLogger().warning("게임 월드 파일을 찾을 수 없어 로드를 건너뜁니다: " + name);
-                continue;
-            }
             try {
-                World world = loaded != null ? loaded
-                        : Bukkit.createWorld(new WorldCreator(name).generator(new VoidWorldGenerator()));
+                WorldCreator creator = worldCreator(name);
+                if (loaded == null && !prepareWorldFolder(creator, false)) {
+                    plugin.getLogger().warning("게임 월드 파일을 찾을 수 없어 로드를 건너뜁니다: " + name);
+                    continue;
+                }
+                World world = loaded != null ? loaded : Bukkit.createWorld(creator);
                 if (world == null) {
                     throw new IllegalStateException("월드 로드 결과가 없습니다.");
                 }
@@ -56,7 +59,7 @@ public final class GameWorld {
                 } else if (!info.worldUuid().equals(world.getUID())) {
                     plugin.getLogger().warning("등록된 UUID와 다른 월드입니다. 게임 월드에서 제외합니다: " + name);
                 }
-            } catch (RuntimeException exception) {
+            } catch (IOException | RuntimeException exception) {
                 plugin.getLogger().log(java.util.logging.Level.SEVERE,
                         "게임 월드를 불러오지 못했습니다: " + name, exception);
             }
@@ -74,8 +77,16 @@ public final class GameWorld {
         if (existing != null) {
             throw new IllegalArgumentException("이미 로드된 월드입니다: " + name);
         }
-        World world = Bukkit.createWorld(new WorldCreator(name)
-                .generator(new VoidWorldGenerator()));
+        WorldCreator creator = worldCreator(name);
+        if (Bukkit.getWorld(creator.key()) != null) {
+            throw new IllegalArgumentException("이미 로드된 월드입니다: " + name);
+        }
+        try {
+            prepareWorldFolder(creator, true);
+        } catch (IOException exception) {
+            throw new IllegalStateException("월드 저장 폴더를 준비하지 못했습니다: " + name, exception);
+        }
+        World world = Bukkit.createWorld(creator);
         if (world == null) {
             throw new IllegalStateException("월드를 생성하지 못했습니다: " + name);
         }
@@ -98,8 +109,101 @@ public final class GameWorld {
         }
     }
 
+    private WorldCreator worldCreator(String name) {
+        return new WorldCreator(name).generator(new VoidWorldGenerator());
+    }
+
+    private Path storageFolder(String name) {
+        return Path.of("worlds", name).toAbsolutePath().normalize();
+    }
+
+    private boolean prepareWorldFolder(WorldCreator creator, boolean creating) throws IOException {
+        NamespacedKey key = creator.key();
+        if (key.equals(NamespacedKey.minecraft("overworld"))
+                || key.equals(NamespacedKey.minecraft("the_nether"))
+                || key.equals(NamespacedKey.minecraft("the_end"))) {
+            throw new IllegalArgumentException("기본 월드에 예약된 이름입니다: " + creator.name());
+        }
+        Path container = Bukkit.getWorldContainer().toPath().toAbsolutePath().normalize();
+        Path legacy = container.resolve(creator.name());
+        Path paperFolder = container.resolve(Bukkit.getUnsafe().getMainLevelName())
+                .resolve("dimensions").resolve(key.getNamespace()).resolve(key.getKey());
+        Path storage = storageFolder(creator.name());
+        boolean paperExists = Files.exists(paperFolder, LinkOption.NOFOLLOW_LINKS);
+        boolean storageExists = Files.exists(storage, LinkOption.NOFOLLOW_LINKS);
+        boolean legacyExists = Files.isRegularFile(legacy.resolve("level.dat"))
+                || Files.isRegularFile(legacy.resolve("level.dat_old"));
+
+        if (creating && (paperExists || storageExists || legacyExists)) {
+            throw new IllegalArgumentException("이미 월드 파일이 존재합니다: " + creator.name());
+        }
+        if (legacyExists && storageExists) {
+            throw new IOException("이전 월드와 새 저장 경로가 모두 존재합니다: " + creator.name());
+        }
+        if (legacyExists) {
+            // Let Paper upgrade the legacy format before relocating it on the next load.
+            return true;
+        }
+        if (!creating && !paperExists && !storageExists) {
+            return false;
+        }
+        Path linkTarget = paperFolder.getParent().relativize(storage);
+        if (Files.isSymbolicLink(paperFolder)) {
+            if (!linkTarget.equals(Files.readSymbolicLink(paperFolder))
+                    || !Files.isDirectory(storage, LinkOption.NOFOLLOW_LINKS) || !Files.isSameFile(paperFolder, storage)) {
+                throw new IOException("월드 저장 경로가 일치하지 않습니다: " + paperFolder);
+            }
+            allowLinkTarget(container, linkTarget);
+            return true;
+        }
+        if (storageExists && (paperExists || !Files.isDirectory(storage, LinkOption.NOFOLLOW_LINKS))) {
+            throw new IOException("월드 저장 경로가 충돌합니다: " + storage);
+        }
+        allowLinkTarget(container, linkTarget);
+        Files.createDirectories(storage.getParent());
+        Files.createDirectories(paperFolder.getParent());
+        if (paperExists) {
+            Files.move(paperFolder, storage);
+        } else if (creating) {
+            Files.createDirectory(storage);
+        }
+        try {
+            // Paper resolves dimensions under the primary world. Only Quake dimensions get links.
+            Files.createSymbolicLink(paperFolder, linkTarget);
+        } catch (IOException | RuntimeException failure) {
+            try {
+                if (paperExists) {
+                    Files.move(storage, paperFolder);
+                } else if (creating) {
+                    Files.delete(storage);
+                }
+            } catch (IOException recoveryFailure) {
+                failure.addSuppressed(recoveryFailure);
+            }
+            throw failure;
+        }
+        return true;
+    }
+
+    private void allowLinkTarget(Path container, Path target) throws IOException {
+        // Paper validates links before plugins load, so allow this exact target for the next restart.
+        Path allowList = container.resolve("allowed_symlinks.txt");
+        String entry = "[regex]" + Pattern.quote(target.toString());
+        if (!Files.exists(allowList) || !Files.readAllLines(allowList).contains(entry)) {
+            Files.writeString(allowList, "\n" + entry + "\n", StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        }
+    }
+
     public List<World> list() {
         return Bukkit.getWorlds().stream().filter(this::isGameWorld).toList();
+    }
+
+    public List<World> listTeleportWorlds() {
+        return Bukkit.getWorlds().stream().filter(this::isTeleportWorld).toList();
+    }
+
+    public boolean isTeleportWorld(World world) {
+        return NamespacedKey.minecraft("overworld").equals(world.getKey()) || isGameWorld(world);
     }
 
     public boolean isGameWorld(World world) {
@@ -170,6 +274,9 @@ public final class GameWorld {
     }
 
     public String statusLabel(World world) {
+        if (!isGameWorld(world)) {
+            return "일반 월드";
+        }
         return switch (requireInfo(world.getName()).status()) {
             case READY -> "준비 완료";
             case MAINTENANCE -> "점검 중";
@@ -211,6 +318,17 @@ public final class GameWorld {
         }
         String name = world.getName();
         Path folder = world.getWorldFolder().toPath();
+        boolean linked = Files.isSymbolicLink(folder);
+        Path storage = linked ? storageFolder(name) : folder;
+        if (linked) {
+            try {
+                if (!Files.isDirectory(storage, LinkOption.NOFOLLOW_LINKS) || !Files.isSameFile(folder, storage)) {
+                    throw new IOException("월드 저장 경로가 일치하지 않습니다: " + folder);
+                }
+            } catch (IOException exception) {
+                throw new IllegalStateException("월드 저장 경로를 확인하지 못했습니다: " + name, exception);
+            }
+        }
         if (!Bukkit.unloadWorld(world, true)) {
             return false;
         }
@@ -218,7 +336,7 @@ public final class GameWorld {
             repository.remove(name);
         } catch (RuntimeException failure) {
             try {
-                World restored = Bukkit.createWorld(new WorldCreator(name).generator(new VoidWorldGenerator()));
+                World restored = Bukkit.createWorld(worldCreator(name));
                 if (restored == null || !isGameWorld(restored)) {
                     throw new IllegalStateException("등록된 월드를 복구하지 못했습니다: " + name);
                 }
@@ -231,7 +349,14 @@ public final class GameWorld {
         // Keep partially deleted folders out of the registry.
         gameWorlds.remove(name);
         spawns.remove(name);
-        deleteWorldFolder(name, folder);
+        deleteWorldFolder(name, storage);
+        if (linked) {
+            try {
+                Files.delete(folder);
+            } catch (IOException exception) {
+                throw new IllegalStateException("월드 저장 링크를 삭제하지 못했습니다: " + folder, exception);
+            }
+        }
         plugin.getComponentLogger().info("Quake 게임 월드를 삭제했습니다: " + name);
         return true;
     }

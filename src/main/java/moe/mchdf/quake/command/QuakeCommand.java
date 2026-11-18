@@ -16,6 +16,7 @@ import moe.mchdf.quake.menu.WorldDeleteMenu;
 import moe.mchdf.quake.menu.WorldTeleportMenu;
 import moe.mchdf.quake.world.GameWorld;
 import moe.mchdf.quake.world.GameWorldStatus;
+import moe.mchdf.quake.world.LobbyWorld;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickCallback;
 import net.kyori.adventure.text.event.ClickEvent;
@@ -29,7 +30,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public final class QuakeCommand implements TabExecutor {
     private enum WorldSubcommand {
-        CREATE, DELETE, TP, LIST, PLAYERS, STATUS, SPAWN;
+        CREATE, DELETE, TP, LIST, PLAYERS, STATUS, SPAWN, LOBBY;
 
         static WorldSubcommand parse(String input) {
             for (WorldSubcommand subcommand : values()) {
@@ -45,17 +46,19 @@ public final class QuakeCommand implements TabExecutor {
     private final GameSession game;
     private final GameWorld gameWorld;
     private final JavaPlugin plugin;
+    private final LobbyWorld lobby;
     private final WorldDeleteMenu worldDeleteMenu;
     private final WorldTeleportMenu worldTeleportMenu;
 
     public QuakeCommand(JavaPlugin plugin, MenuBook book, GameSession game, GameWorld gameWorld,
-                        WorldDeleteMenu worldDeleteMenu, WorldTeleportMenu worldTeleportMenu) {
+                        WorldDeleteMenu worldDeleteMenu, WorldTeleportMenu worldTeleportMenu, LobbyWorld lobby) {
         this.plugin = plugin;
         this.book = book;
         this.game = game;
         this.gameWorld = gameWorld;
         this.worldDeleteMenu = worldDeleteMenu;
         this.worldTeleportMenu = worldTeleportMenu;
+        this.lobby = lobby;
     }
 
     @Override
@@ -98,7 +101,7 @@ public final class QuakeCommand implements TabExecutor {
             return true;
         }
         if (args.length != 2 || !args[0].equalsIgnoreCase("get") || !args[1].equalsIgnoreCase("book")) {
-            player.sendMessage(Component.text("사용법: /quake get book, /quake setTimer <seconds>, /quake setScore <score>, /quake world <create|delete|tp> ..., /quake world players <name> <min> <max>, /quake world status <name> <ready|maintenance|disabled>, /quake world spawn <name> <red|blue>", NamedTextColor.YELLOW));
+            player.sendMessage(Component.text("사용법: /quake get book, /quake setTimer <seconds>, /quake setScore <score>, /quake world <create|delete|tp> ..., /quake world players <name> <min> <max>, /quake world status <name> <ready|maintenance|disabled>, /quake world spawn <name> <red|blue>, /quake world lobby", NamedTextColor.YELLOW));
             return true;
         }
         if (game.isRunning() && game.contains(player)) {
@@ -122,7 +125,25 @@ public final class QuakeCommand implements TabExecutor {
             case PLAYERS -> playersWorld(player, args);
             case STATUS -> statusWorld(player, args);
             case SPAWN -> spawnWorld(player, args);
+            case LOBBY -> setLobby(player, args);
         };
+    }
+
+    private boolean setLobby(Player player, String[] args) {
+        if (args.length != 2) {
+            return false;
+        }
+        String worldName = player.getWorld().getName();
+        try {
+            int failed = lobby.setSpawn(player.getLocation());
+            player.sendMessage(Component.text(worldName + "에서 현재 위치를 로비 스폰으로 저장했습니다.", NamedTextColor.GREEN));
+            if (failed > 0) {
+                player.sendMessage(Component.text("기존 로비에서 " + failed + "명을 이동시키지 못했습니다.", NamedTextColor.YELLOW));
+            }
+        } catch (IllegalStateException exception) {
+            player.sendMessage(Component.text(exception.getMessage(), NamedTextColor.RED));
+        }
+        return true;
     }
 
     private boolean createWorld(Player player, String[] args) {
@@ -189,8 +210,8 @@ public final class QuakeCommand implements TabExecutor {
         if (args.length != 2) {
             return false;
         }
-        player.sendMessage(Component.text("등록된 게임 월드 목록 (클릭하여 이동 가능):", NamedTextColor.GREEN));
-        for (var world : gameWorld.list()) {
+        player.sendMessage(Component.text("월드 목록 (클릭하여 이동 가능)", NamedTextColor.GREEN));
+        for (var world : gameWorld.listTeleportWorlds()) {
             player.sendMessage(worldListEntry(world));
         }
         return true;

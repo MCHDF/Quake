@@ -1,10 +1,10 @@
 package moe.mchdf.quake.weapon;
 
 import moe.mchdf.quake.game.GameTeams;
+import moe.mchdf.quake.item.RailGunItem;
 import org.bukkit.Color;
 import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Particle.DustOptions;
 import org.bukkit.Sound;
@@ -22,11 +22,11 @@ public final class RailGunWeapon {
     }
 
     public void fire(Player shooter) {
-        if (shooter == null || shooter.hasCooldown(Material.IRON_SHOVEL)) {
+        if (shooter == null || shooter.hasCooldown(RailGunItem.MATERIAL)) {
             return;
         }
 
-        shooter.setCooldown(Material.IRON_SHOVEL, 36);
+        shooter.setCooldown(RailGunItem.MATERIAL, 36);
 
         Location start = shooter.getEyeLocation();
         Vector direction = shooter.getEyeLocation().getDirection();
