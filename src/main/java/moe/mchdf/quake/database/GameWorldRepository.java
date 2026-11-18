@@ -18,6 +18,10 @@ public final class GameWorldRepository {
 
     public GameWorldRepository(DatabaseManager database) {
         this.database = database;
+        initializeSchema();
+    }
+
+    private void initializeSchema() {
         try (var connection = database.getConnection()) {
             connection.setAutoCommit(false);
             try (var statement = connection.createStatement()) {
