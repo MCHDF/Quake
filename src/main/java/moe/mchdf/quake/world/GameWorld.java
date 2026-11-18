@@ -209,36 +209,42 @@ public final class GameWorld {
         if (!world.getPlayers().isEmpty()) {
             throw new IllegalStateException("플레이어가 있는 월드는 삭제할 수 없습니다.");
         }
-        if (!Bukkit.unloadWorld(world, false)) {
+        String name = world.getName();
+        Path folder = world.getWorldFolder().toPath();
+        if (!Bukkit.unloadWorld(world, true)) {
             return false;
         }
-        // Deregister before removing files so a partial deletion cannot be loaded on restart.
-        repository.remove(world.getName());
-        gameWorlds.remove(world.getName());
-        spawns.remove(world.getName());
         try {
-            Path folder = world.getWorldFolder().toPath();
-            try (var paths = Files.walk(folder)) {
-                paths.sorted(Comparator.reverseOrder()).forEach(path -> {
-                    try {
-                        Files.delete(path);
-                    } catch (IOException exception) {
-                        throw new WorldDeletionException(exception);
-                    }
-                });
+            repository.remove(name);
+        } catch (RuntimeException failure) {
+            try {
+                World restored = Bukkit.createWorld(new WorldCreator(name).generator(new VoidWorldGenerator()));
+                if (restored == null || !isGameWorld(restored)) {
+                    throw new IllegalStateException("등록된 월드를 복구하지 못했습니다: " + name);
+                }
+            } catch (RuntimeException recoveryFailure) {
+                failure.addSuppressed(recoveryFailure);
             }
-        } catch (WorldDeletionException exception) {
-            throw new IllegalStateException("월드 파일을 삭제하지 못했습니다: " + world.getName(), exception.getCause());
-        } catch (IOException exception) {
-            throw new IllegalStateException("월드 파일을 읽지 못했습니다: " + world.getName(), exception);
+            throw failure;
         }
-        plugin.getComponentLogger().info("Quake 게임 월드를 삭제했습니다: " + world.getName());
+
+        // Keep partially deleted folders out of the registry.
+        gameWorlds.remove(name);
+        spawns.remove(name);
+        deleteWorldFolder(name, folder);
+        plugin.getComponentLogger().info("Quake 게임 월드를 삭제했습니다: " + name);
         return true;
     }
 
-    private static final class WorldDeletionException extends RuntimeException {
-        private WorldDeletionException(IOException cause) {
-            super(cause);
+    private void deleteWorldFolder(String name, Path folder) {
+        try (var paths = Files.walk(folder)) {
+            var entries = paths.sorted(Comparator.reverseOrder()).iterator();
+            while (entries.hasNext()) {
+                Files.deleteIfExists(entries.next());
+            }
+        } catch (IOException | java.io.UncheckedIOException exception) {
+            throw new IllegalStateException(
+                    "월드 등록은 삭제했지만 남은 파일을 정리하지 못했습니다: " + name + " (" + folder + ")", exception);
         }
     }
 }
