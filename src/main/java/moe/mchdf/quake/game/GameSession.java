@@ -4,8 +4,6 @@ import java.util.LinkedHashSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
-import java.util.ArrayDeque;
-import java.util.Deque;
 import moe.mchdf.quake.world.GameWorld;
 import moe.mchdf.quake.world.GameWorldInfo;
 import org.bukkit.Location;
@@ -26,7 +24,7 @@ public final class GameSession {
     private final MenuBook book;
     private final GameWorld worlds;
     private GameWorldInfo currentWorld;
-    private final Deque<GameWorldInfo> upcomingWorlds = new ArrayDeque<>();
+    private final WorldRotation worldRotation = new WorldRotation();
     private int waitingRemaining;
     private final Map<UUID, Location> returnLocations = new HashMap<>();
     // During a game, this set contains only the players who joined before it started.
@@ -94,25 +92,8 @@ public final class GameSession {
     private void rotateWorld() {
         timer.cancel();
         state = GameState.WAITING;
-        List<GameWorldInfo> ready = worlds.readyWorlds();
-        upcomingWorlds.removeIf(queued -> ready.stream().noneMatch(info -> sameRotationEntry(info, queued)));
-        for (GameWorldInfo info : ready) {
-            if (!sameRotationEntry(info, currentWorld)
-                    && upcomingWorlds.stream().noneMatch(queued -> sameRotationEntry(info, queued))) {
-                upcomingWorlds.addLast(info);
-            }
-        }
-        if (currentWorld != null) {
-            ready.stream().filter(info -> sameRotationEntry(info, currentWorld)).findFirst()
-                    .ifPresent(upcomingWorlds::addLast);
-        }
-        currentWorld = upcomingWorlds.pollFirst();
+        currentWorld = worldRotation.next(worlds.readyWorlds(), currentWorld);
         beginWaiting();
-    }
-
-    private boolean sameRotationEntry(GameWorldInfo first, GameWorldInfo second) {
-        return first != null && second != null && first.name().equals(second.name())
-                && first.worldUuid().equals(second.worldUuid()) && first.rotationOrder() == second.rotationOrder();
     }
 
     public void onWorldSettingsChanged() {
@@ -134,7 +115,7 @@ public final class GameSession {
             return false;
         }
         GameWorldInfo fresh = worlds.readyWorlds().stream()
-                .filter(info -> sameRotationEntry(info, currentWorld))
+                .filter(info -> WorldRotation.sameRotationEntry(info, currentWorld))
                 .findFirst().orElse(null);
         if (fresh == null) {
             return false;
@@ -362,7 +343,7 @@ public final class GameSession {
         returnPlayers();
         participants.clear();
         nextGameQueue.clear();
-        upcomingWorlds.clear();
+        worldRotation.clear();
     }
 
     public DoubleJump getDoubleJump() {
