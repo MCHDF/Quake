@@ -83,7 +83,7 @@ final class GameDisplay {
 
     private Component teamScores(int redScore, int blueScore) {
         return Component.text("RED " + redScore, NamedTextColor.RED)
-                .append(Component.text("  |  "))
+                .append(Component.text("  |  ", NamedTextColor.WHITE))
                 .append(Component.text("BLUE " + blueScore, NamedTextColor.BLUE));
     }
 }
