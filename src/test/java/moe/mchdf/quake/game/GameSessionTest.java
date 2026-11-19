@@ -448,7 +448,7 @@ class GameSessionTest {
     }
 
     @Test
-    void normalEndPromotesQueueAndStartsExactlyOneCountdown() {
+    void normalEndPromotesQueueAndReturningPlayersAndStartsExactlyOneCountdown() {
         game.setGameDurationSeconds(3);
         Player first = player();
         Player second = player();
@@ -479,8 +479,8 @@ class GameSessionTest {
         verify(first).showTitle(result.capture());
         assertEquals("승리", plainText.serialize(result.getValue().title()));
         assertEquals("최종 점수  |  RED 3  |  BLUE 2", plainText.serialize(result.getValue().subtitle()));
-        assertFalse(game.contains(first));
-        assertFalse(game.contains(second));
+        assertTrue(game.contains(first));
+        assertTrue(game.contains(second));
         verifyLobbyArrival(first);
         verifyLobbyArrival(second);
         verify(next, never()).teleport(lobbySpawn);
@@ -531,7 +531,7 @@ class GameSessionTest {
             assertFalse(game.isQueued(applicant));
             assertFalse(game.contains(applicant));
         }
-        assertEquals(GameState.WAITING, game.getState());
+        assertEquals(GameState.COUNTDOWN, game.getState());
     }
 
     @Test
@@ -548,7 +548,7 @@ class GameSessionTest {
         tickSeconds(30);
         assertTrue(game.isRunning());
         tickSeconds(1);
-        assertEquals(GameState.WAITING, game.getState());
+        assertEquals(GameState.COUNTDOWN, game.getState());
         assertEquals(1, tasks.stream().filter(task -> !task.cancelled).count());
     }
 

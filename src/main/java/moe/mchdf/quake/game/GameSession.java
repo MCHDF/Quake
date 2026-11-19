@@ -320,7 +320,7 @@ public final class GameSession {
                 player.sendMessage(Component.text(cancelled
                         ? "참여 인원 부족으로 게임이 취소되었습니다."
                         : "게임이 종료되었습니다.", NamedTextColor.GOLD));
-                if (cancelled && player.isOnline()) {
+                if (player.isOnline()) {
                     nextGameQueue.add(playerId);
                 }
             }
