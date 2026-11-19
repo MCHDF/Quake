@@ -39,7 +39,7 @@ public final class Quake extends JavaPlugin {
         game = new GameSession(this, book, gameWorld);
         MinigameMenu menu = new MinigameMenu(this, game);
         WorldDeleteMenu worldDeleteMenu = new WorldDeleteMenu(this, gameWorld);
-        WorldTeleportMenu worldTeleportMenu = new WorldTeleportMenu(gameWorld);
+        WorldTeleportMenu worldTeleportMenu = new WorldTeleportMenu(this, gameWorld, lobby);
         var command = Objects.requireNonNull(getCommand("quake"), "quake command is missing from plugin.yml");
         QuakeCommand executor = new QuakeCommand(this, book, game, gameWorld, worldDeleteMenu, worldTeleportMenu, lobby);
         command.setExecutor(executor);
