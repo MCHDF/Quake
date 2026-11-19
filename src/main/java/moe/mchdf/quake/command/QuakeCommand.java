@@ -131,9 +131,9 @@ public final class QuakeCommand implements TabExecutor {
         sendHelpEntry(player, "/quake world tp", "", "월드 이동 메뉴 열기");
         sendHelpEntry(player, "/quake world create", " [월드명]", "게임 월드 생성");
         sendHelpEntry(player, "/quake world delete", " [월드명]", "게임 월드 삭제");
-        sendHelpEntry(player, "/quake world players", " <월드명> <최소> <최대>", "참가 인원 설정");
-        sendHelpEntry(player, "/quake world status", " <월드명> <ready|maintenance|disabled>", "월드 상태 변경");
-        sendHelpEntry(player, "/quake world spawn", " <월드명> <red|blue>", "현재 위치를 팀 스폰으로 저장");
+        sendHelpEntry(player, "/quake world players", " <최소> <최대>", "현재 게임 월드의 참가 인원 설정");
+        sendHelpEntry(player, "/quake world status", " <ready|maintenance|disabled>", "현재 게임 월드의 상태 변경");
+        sendHelpEntry(player, "/quake world spawn", " <red|blue>", "현재 위치를 팀 스폰으로 저장");
         sendHelpEntry(player, "/quake world lobby", "", "현재 위치를 로비 스폰으로 저장");
     }
 
@@ -228,15 +228,16 @@ public final class QuakeCommand implements TabExecutor {
     }
 
     private boolean playersWorld(Player player, String[] args) {
-        if (args.length != 5) {
+        if (args.length != 4) {
             return false;
         }
+        String worldName = player.getWorld().getName();
         try {
-            int min = Integer.parseInt(args[3]);
-            int max = Integer.parseInt(args[4]);
-            gameWorld.setPlayerLimits(args[2], min, max);
+            int min = Integer.parseInt(args[2]);
+            int max = Integer.parseInt(args[3]);
+            gameWorld.setPlayerLimits(worldName, min, max);
             game.onWorldSettingsChanged();
-            player.sendMessage(Component.text("월드 인원 설정을 저장했습니다: " + args[2]
+            player.sendMessage(Component.text("월드 인원 설정을 저장했습니다: " + worldName
                     + " (최소 " + min + "명, 최대 " + max + "명)", NamedTextColor.GREEN));
         } catch (NumberFormatException exception) {
             player.sendMessage(Component.text("최소 인원은 2명 또는 4명, 최대 인원은 2~16 사이의 짝수로 입력해 주세요.", NamedTextColor.RED));
@@ -247,19 +248,20 @@ public final class QuakeCommand implements TabExecutor {
     }
 
     private boolean statusWorld(Player player, String[] args) {
-        if (args.length != 4) {
+        if (args.length != 3) {
             return false;
         }
+        String worldName = player.getWorld().getName();
         try {
             GameWorldStatus status;
             try {
-                status = GameWorldStatus.valueOf(args[3].toUpperCase(Locale.ROOT));
+                status = GameWorldStatus.valueOf(args[2].toUpperCase(Locale.ROOT));
             } catch (IllegalArgumentException exception) {
                 throw new IllegalArgumentException("상태는 ready, maintenance, disabled 중 하나로 입력해 주세요.");
             }
-            gameWorld.setStatus(args[2], status);
+            gameWorld.setStatus(worldName, status);
             game.onWorldSettingsChanged();
-            player.sendMessage(Component.text("월드 상태를 변경했습니다: " + args[2] + " → " + status,
+            player.sendMessage(Component.text("월드 상태를 변경했습니다: " + worldName + " → " + status,
                     NamedTextColor.GREEN));
         } catch (IllegalArgumentException | IllegalStateException exception) {
             player.sendMessage(Component.text(exception.getMessage(), NamedTextColor.RED));
@@ -268,16 +270,17 @@ public final class QuakeCommand implements TabExecutor {
     }
 
     private boolean spawnWorld(Player player, String[] args) {
-        if (args.length != 4) {
+        if (args.length != 3) {
             return false;
         }
+        String worldName = player.getWorld().getName();
         try {
-            if (game.isRunning() && game.getCurrentWorld().name().equals(args[2])) {
+            if (game.isRunning() && game.getCurrentWorld().name().equals(worldName)) {
                 throw new IllegalArgumentException("게임 진행 중인 월드의 스폰은 변경할 수 없습니다.");
             }
-            String team = args[3].toUpperCase(Locale.ROOT);
-            gameWorld.setSpawn(args[2], team, player.getLocation());
-            player.sendMessage(Component.text(args[2] + "의 " + team
+            String team = args[2].toUpperCase(Locale.ROOT);
+            gameWorld.setSpawn(worldName, team, player.getLocation());
+            player.sendMessage(Component.text(worldName + "의 " + team
                     + " 스폰을 현재 위치와 시선 방향으로 저장했습니다.", NamedTextColor.GREEN));
         } catch (IllegalArgumentException | IllegalStateException exception) {
             player.sendMessage(Component.text(exception.getMessage(), NamedTextColor.RED));
@@ -354,18 +357,14 @@ public final class QuakeCommand implements TabExecutor {
                     .filter(option -> option.startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
         }
         WorldSubcommand subcommand = WorldSubcommand.parse(args[1]);
-        if (args.length == 3 && (subcommand == WorldSubcommand.STATUS
-                || subcommand == WorldSubcommand.SPAWN || subcommand == WorldSubcommand.PLAYERS)) {
-            return gameWorld.list().stream().map(org.bukkit.World::getName)
-                    .filter(name -> name.startsWith(args[2])).toList();
-        }
-        if (args.length == 4) {
+        if (args.length == 3) {
             List<String> options = switch (subcommand) {
+                case PLAYERS -> List.of("2", "4");
                 case STATUS -> List.of("ready", "maintenance", "disabled");
                 case SPAWN -> List.of("red", "blue");
                 case null, default -> List.of();
             };
-            return options.stream().filter(option -> option.startsWith(args[3].toLowerCase(Locale.ROOT))).toList();
+            return options.stream().filter(option -> option.startsWith(args[2].toLowerCase(Locale.ROOT))).toList();
         }
         return List.of();
     }

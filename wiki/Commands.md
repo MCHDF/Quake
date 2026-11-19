@@ -18,12 +18,12 @@
 /quake world delete <name>
 /quake world tp
 /quake world lobby
-/quake world players <name> <min> <max>
-/quake world spawn <name> red
-/quake world spawn <name> blue
-/quake world status <name> ready
-/quake world status <name> maintenance
-/quake world status <name> disabled
+/quake world players <min> <max>
+/quake world spawn red
+/quake world spawn blue
+/quake world status ready
+/quake world status maintenance
+/quake world status disabled
 ```
 
 `/quake world tp`를 입력하면 월드 이동 메뉴가 열립니다. 기존 `/quake world list`도 같은 메뉴를 여는 별칭입니다. 한 줄에 월드가 9개씩 표시되며, 54개를 넘으면 페이지를 나눕니다.
@@ -32,8 +32,10 @@
 
 월드 이름에는 영문, 숫자, `_`, `-`만 사용할 수 있습니다. 삭제할 월드에 다른 플레이어가 없어야 하며, 현재 위치한 월드는 삭제할 수 없습니다.
 
+`players`, `spawn`, `status`는 명령을 실행한 현재 게임 월드에 적용됩니다.
+
 `min_players`의 기본값은 2명이며 2명 또는 4명만 설정할 수 있습니다. `max_players`의 기본값은 16명이고 2~16 사이의 짝수여야 하며, 최소 인원은 최대 인원 이하여야 합니다.
 
 ```text
-/quake world players desert_arena 4 12
+/quake world players 4 12
 ```

@@ -51,9 +51,9 @@
 맵 제작 후 각 팀의 시작 위치에서 스폰을 저장합니다. 좌표와 시선 방향(yaw/pitch)을 함께 저장합니다.
 
 ```text
-/quake world spawn arena red
-/quake world spawn arena blue
-/quake world status arena ready
+/quake world spawn red
+/quake world spawn blue
+/quake world status ready
 ```
 
 양 팀 스폰이 모두 있어야 `READY`로 전환할 수 있습니다. `READY`를 다시 실행해도 순서는 바뀌지 않습니다. `MAINTENANCE` 또는 `DISABLED`로 변경하면 이후 로테이션에서 제외되고, 다시 `READY`로 변경하면 대기 목록 끝에 추가됩니다. 이미 진행 중인 게임은 끝까지 진행합니다.
