@@ -59,11 +59,10 @@ public final class RailGunWeapon {
             return;
         }
 
-        gameTeams.awardPoint(shooter, hitPlayer);
-
         shooter.getWorld().playSound(hitPlayer.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_BLAST, 1.0F, 1.0F);
         drawTrail(start, hitPlayer.getLocation().toVector().subtract(start.toVector()), shooter.getWorld());
         playLaunchSound(shooter);
+        gameTeams.awardPoint(shooter, hitPlayer);
     }
 
     private void drawTrail(Location start, Vector direction, World world) {
