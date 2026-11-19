@@ -66,8 +66,12 @@ public final class GameSession {
         return nextGameQueue.contains(player.getUniqueId());
     }
 
+    public boolean hasReadyWorlds() {
+        return !worlds.readyWorlds().isEmpty();
+    }
+
     public void join(Player player) {
-        if (worlds.readyWorlds().isEmpty()) {
+        if (!hasReadyWorlds()) {
             player.sendMessage(Component.text("로테이션에 준비된 게임 맵이 없어 참여할 수 없습니다.", NamedTextColor.RED));
             return;
         }
