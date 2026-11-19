@@ -67,6 +67,10 @@ public final class GameSession {
     }
 
     public void join(Player player) {
+        if (worlds.readyWorlds().isEmpty()) {
+            player.sendMessage(Component.text("로테이션에 준비된 게임 맵이 없어 참여할 수 없습니다.", NamedTextColor.RED));
+            return;
+        }
         if (isRunning()) {
             if (contains(player)) {
                 player.sendMessage(Component.text("이미 현재 게임에 참여 중입니다.", NamedTextColor.YELLOW));

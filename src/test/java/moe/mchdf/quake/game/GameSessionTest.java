@@ -135,13 +135,21 @@ class GameSessionTest {
         tickSeconds(30);
         assertEquals("arena_a", game.getCurrentWorld().name());
         ready.clear();
+        Player first = player();
+        game.join(first);
+        assertFalse(game.contains(first));
+        verify(first).sendMessage(net.kyori.adventure.text.Component.text(
+                "로테이션에 준비된 게임 맵이 없어 참여할 수 없습니다.",
+                net.kyori.adventure.text.format.NamedTextColor.RED));
         tickSeconds(30);
         assertNull(game.getCurrentWorld());
-        game.join(player());
-        game.join(player());
+        Player second = player();
+        game.join(second);
+        assertFalse(game.contains(second));
         assertEquals(GameState.WAITING, game.getState());
         ready.add(arena("arena_c", 2, 16));
-        tickSeconds(30);
+        game.join(first);
+        game.join(second);
         assertEquals(GameState.COUNTDOWN, game.getState());
         assertEquals("arena_c", game.getCurrentWorld().name());
     }
