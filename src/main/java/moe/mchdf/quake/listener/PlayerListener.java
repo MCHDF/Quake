@@ -6,6 +6,7 @@ import moe.mchdf.quake.menu.MinigameMenu;
 import moe.mchdf.quake.world.LobbyArrival;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
@@ -31,7 +32,7 @@ public final class PlayerListener implements Listener {
     public void onDrop(PlayerDropItemEvent event) {
         if (!event.getPlayer().isOp() && book.isMenuBook(event.getItemDrop().getItemStack())) {
             event.setCancelled(true);
-            event.getPlayer().sendMessage(Component.text("미니게임 메뉴 책은 버릴 수 없습니다.", NamedTextColor.RED));
+            event.getPlayer().sendActionBar(Component.text("미니게임 메뉴 책은 버릴 수 없습니다.", NamedTextColor.RED, TextDecoration.BOLD));
         }
     }
 
