@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.List;
 import moe.mchdf.quake.world.GameWorld;
 import moe.mchdf.quake.world.GameWorldInfo;
+import moe.mchdf.quake.world.LobbyArrival;
 import org.bukkit.Location;
 import org.bukkit.World;
 import java.util.Set;
@@ -24,6 +25,7 @@ public final class GameSession {
     private static final float WALK_SPEED_MULTIPLIER = 2.0F;
     private final MenuBook book;
     private final GameWorld worlds;
+    private final LobbyArrival lobbyArrival;
     private GameWorldInfo currentWorld;
     private final WorldRotation worldRotation = new WorldRotation();
     private int waitingRemaining;
@@ -39,7 +41,8 @@ public final class GameSession {
     private final GameSettings settings;
     private GameState state = GameState.WAITING;
 
-    public GameSession(JavaPlugin plugin, MenuBook book, GameWorld worlds) {
+    public GameSession(JavaPlugin plugin, MenuBook book, GameWorld worlds, LobbyArrival lobbyArrival) {
+        this.lobbyArrival = lobbyArrival;
         this.worlds = worlds;
         this.book = book;
         timer = new GameTimer(plugin);
@@ -293,19 +296,18 @@ public final class GameSession {
             if (player != null) {
                 doubleJump.disable(player);
                 restoreWalkSpeed(player);
-                RailGunItem.removeFromInventory(player);
                 display.hide(player);
+                lobbyArrival.resetAndSend(player);
                 player.sendMessage(Component.text(cancelled
                         ? "참여 인원 부족으로 게임이 취소되었습니다."
                         : "게임이 종료되었습니다.", NamedTextColor.GOLD));
-                book.giveMenuBook(player);
                 if (cancelled && player.isOnline()) {
                     nextGameQueue.add(playerId);
                 }
             }
         }
         previousWalkSpeeds.clear();
-        returnPlayers();
+        returnLocations.clear();
         participants.clear();
         state = GameState.WAITING;
         promoteQueue(cancelled);

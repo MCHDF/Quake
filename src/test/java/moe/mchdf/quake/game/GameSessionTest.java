@@ -14,6 +14,9 @@ import moe.mchdf.quake.item.RailGunItem;
 import moe.mchdf.quake.world.GameWorld;
 import moe.mchdf.quake.world.GameWorldInfo;
 import moe.mchdf.quake.world.GameWorldStatus;
+import moe.mchdf.quake.world.LobbyArrival;
+import moe.mchdf.quake.world.LobbyWorld;
+import org.bukkit.GameMode;
 import org.bukkit.World;
 import org.bukkit.Location;
 import org.bukkit.inventory.PlayerInventory;
@@ -38,6 +41,7 @@ class GameSessionTest {
     private GameSession game;
     private MenuBook book;
     private GameWorld worlds;
+    private Location lobbySpawn;
     private MockedStatic<RailGunItem> railGun;
     private final List<GameWorldInfo> ready = new ArrayList<>();
 
@@ -64,7 +68,10 @@ class GameSessionTest {
                     tasks.add(task);
                     return task.handle;
                 });
-        game = new GameSession(plugin, book, worlds);
+        LobbyWorld lobby = mock(LobbyWorld.class);
+        lobbySpawn = new Location(mock(World.class), 1, 64, 2);
+        when(lobby.spawn()).thenReturn(lobbySpawn);
+        game = new GameSession(plugin, book, worlds, new LobbyArrival(lobby, book));
     }
 
     @AfterEach
@@ -257,6 +264,16 @@ class GameSessionTest {
         return player;
     }
 
+    private void verifyLobbyArrival(Player player) {
+        verify(player.getInventory()).clear();
+        verify(player.getInventory()).setHeldItemSlot(0);
+        verify(book).giveMenuBook(player);
+        verify(player).setGameMode(GameMode.ADVENTURE);
+        verify(player).teleport(lobbySpawn);
+        Location original = player.getLocation();
+        verify(player, never()).teleport(original);
+    }
+
     private void disconnect(Player player) {
         online.remove(player.getUniqueId());
         game.leave(player);
@@ -353,8 +370,9 @@ class GameSessionTest {
         assertTrue(game.contains(third));
         assertFalse(game.contains(first));
         assertEquals(1, tasks.stream().filter(task -> !task.cancelled).count());
-        verify(book).giveMenuBook(second);
-        verify(book).giveMenuBook(third);
+        verifyLobbyArrival(second);
+        verifyLobbyArrival(third);
+        verify(first, never()).teleport(lobbySpawn);
     }
 
     @Test
@@ -436,7 +454,9 @@ class GameSessionTest {
         tickSeconds(3);
         assertFalse(game.contains(first));
         assertFalse(game.contains(second));
-        verify(book).giveMenuBook(first);
+        verifyLobbyArrival(first);
+        verifyLobbyArrival(second);
+        verify(next, never()).teleport(lobbySpawn);
         assertTrue(game.contains(next));
         assertTrue(game.contains(other));
         assertFalse(game.isQueued(next));

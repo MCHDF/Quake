@@ -36,7 +36,7 @@ public final class Quake extends JavaPlugin {
         LobbyWorld lobby = new LobbyWorld(new LobbyRepository(database));
         MenuBook book = new MenuBook(this);
         LobbyArrival lobbyArrival = new LobbyArrival(lobby, book);
-        game = new GameSession(this, book, gameWorld);
+        game = new GameSession(this, book, gameWorld, lobbyArrival);
         MinigameMenu menu = new MinigameMenu(this, game);
         WorldDeleteMenu worldDeleteMenu = new WorldDeleteMenu(this, gameWorld);
         WorldTeleportMenu worldTeleportMenu = new WorldTeleportMenu(this, gameWorld, lobby);
