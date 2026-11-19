@@ -15,8 +15,12 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.server.ServerListPingEvent;
 
 public final class PlayerListener implements Listener {
+    private static final Component SERVER_MOTD = MiniMessage.miniMessage().deserialize(
+            "<gold><bold>QUAKE</bold></gold><newline><gray>레일건 팀 대전</gray>");
+
     private final MenuBook book;
     private final MinigameMenu menu;
     private final GameSession game;
@@ -47,6 +51,11 @@ public final class PlayerListener implements Listener {
     public void onQuit(PlayerQuitEvent event) {
         event.quitMessage(MiniMessage.miniMessage().deserialize("[<b><red>-</red></b>] <b><gray>"+event.getPlayer().getName()+"</gray></b>"));
         game.leave(event.getPlayer());
+    }
+
+    @EventHandler
+    public void onServerListPing(ServerListPingEvent event) {
+        event.motd(SERVER_MOTD);
     }
 
     @EventHandler
