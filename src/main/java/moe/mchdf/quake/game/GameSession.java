@@ -29,6 +29,7 @@ public final class GameSession {
     private GameWorldInfo currentWorld;
     private final WorldRotation worldRotation = new WorldRotation();
     private int waitingRemaining;
+    private int gameRemaining;
     private final Map<UUID, Location> returnLocations = new HashMap<>();
     private final Map<UUID, Float> previousWalkSpeeds = new HashMap<>();
     // During a game, this set contains only the players who joined before it started.
@@ -265,7 +266,8 @@ public final class GameSession {
             }
         }
         state = GameState.RUNNING;
-        gameTeams.setTargetScore(settings.targetScore());
+        int targetScore = settings.targetScore();
+        gameTeams.setTargetScore(targetScore);
         gameTeams.setTargetReachedListener(() -> finishGame(false));
         for (UUID playerId : participants) {
             Player player = Bukkit.getPlayer(playerId);
@@ -282,8 +284,12 @@ public final class GameSession {
         }
         // Capture the duration so configuration changes apply only to the next game.
         int duration = settings.durationSeconds();
+        Runnable updateScoreDisplay = () -> display.running(gameRemaining, duration,
+                gameTeams.getTeamScore("RED"), gameTeams.getTeamScore("BLUE"), targetScore);
+        gameTeams.setScoreChangedListener(updateScoreDisplay);
         timer.start(duration, remaining -> {
-            display.running(remaining, duration);
+            gameRemaining = remaining;
+            updateScoreDisplay.run();
             gameTeams.updateTabListFooter();
         },
                 () -> finishGame(false));
@@ -298,6 +304,8 @@ public final class GameSession {
 
     private void finishGame(boolean cancelled) {
         timer.cancel();
+        int redScore = gameTeams.getTeamScore("RED");
+        int blueScore = gameTeams.getTeamScore("BLUE");
         for (UUID playerId : participants) {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
@@ -307,8 +315,7 @@ public final class GameSession {
                 lobbyArrival.resetAndSend(player);
                 String team = gameTeams.getTeamOf(player);
                 if (!cancelled && team != null) {
-                    String opponent = team.equals("RED") ? "BLUE" : "RED";
-                    display.showResult(player, gameTeams.getTeamScore(team), gameTeams.getTeamScore(opponent));
+                    display.showResult(player, team, redScore, blueScore);
                 }
                 player.sendMessage(Component.text(cancelled
                         ? "참여 인원 부족으로 게임이 취소되었습니다."

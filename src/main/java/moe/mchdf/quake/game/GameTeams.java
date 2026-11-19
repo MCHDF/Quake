@@ -24,6 +24,7 @@ public final class GameTeams {
     private Scoreboard scoreboard;
     private int targetScore = 5;
     private Runnable targetReachedListener;
+    private Runnable scoreChangedListener;
 
     void assign(Collection<UUID> participants) {
         clear();
@@ -86,6 +87,10 @@ public final class GameTeams {
         targetReachedListener = listener;
     }
 
+    void setScoreChangedListener(Runnable listener) {
+        scoreChangedListener = listener;
+    }
+
     public void awardPoint(Player shooter, Player target) {
         String team = getTeamOf(shooter);
         String targetTeam = getTeamOf(target);
@@ -94,6 +99,9 @@ public final class GameTeams {
         }
         int newScore = teamScores.getOrDefault(team, 0) + 1;
         teamScores.put(team, newScore);
+        if (scoreChangedListener != null) {
+            scoreChangedListener.run();
+        }
         updateTabListFooter();
 
         NamedTextColor shooterColor = team.equals("RED") ? NamedTextColor.RED : NamedTextColor.BLUE;
@@ -238,6 +246,8 @@ public final class GameTeams {
         previousScoreboards.clear();
         playerTeams.clear();
         teamScores.clear();
+        scoreChangedListener = null;
+        targetReachedListener = null;
         if (scoreboard != null) {
             for (Team team : scoreboard.getTeams()) {
                 team.unregister();

@@ -16,6 +16,9 @@ import moe.mchdf.quake.world.GameWorldInfo;
 import moe.mchdf.quake.world.GameWorldStatus;
 import moe.mchdf.quake.world.LobbyArrival;
 import moe.mchdf.quake.world.LobbyWorld;
+import net.kyori.adventure.bossbar.BossBar;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import net.kyori.adventure.title.Title;
 import org.bukkit.GameMode;
 import org.bukkit.World;
 import org.bukkit.Location;
@@ -32,6 +35,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
+import org.mockito.ArgumentCaptor;
 
 class GameSessionTest {
     private final Map<UUID, Player> online = new HashMap<>();
@@ -459,7 +463,22 @@ class GameSessionTest {
         assertTrue(game.isQueued(next));
         assertFalse(game.contains(next));
         verify(next, never()).showBossBar(any());
+        var bar = ArgumentCaptor.forClass(BossBar.class);
+        verify(first).showBossBar(bar.capture());
+        var scoreChanged = ArgumentCaptor.forClass(Runnable.class);
+        GameTeams gameTeams = teams.constructed().getFirst();
+        verify(gameTeams).setScoreChangedListener(scoreChanged.capture());
+        when(gameTeams.getTeamScore("RED")).thenReturn(3);
+        when(gameTeams.getTeamScore("BLUE")).thenReturn(2);
+        scoreChanged.getValue().run();
+        var plainText = PlainTextComponentSerializer.plainText();
+        assertEquals("RED 3  |  BLUE 2  |  목표 5점  |  00:03",
+                plainText.serialize(bar.getValue().name()));
         tickSeconds(3);
+        var result = ArgumentCaptor.forClass(Title.class);
+        verify(first).showTitle(result.capture());
+        assertEquals("승리", plainText.serialize(result.getValue().title()));
+        assertEquals("최종 점수  |  RED 3  |  BLUE 2", plainText.serialize(result.getValue().subtitle()));
         assertFalse(game.contains(first));
         assertFalse(game.contains(second));
         verifyLobbyArrival(first);
