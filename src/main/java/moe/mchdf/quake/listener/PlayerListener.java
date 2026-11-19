@@ -7,6 +7,7 @@ import moe.mchdf.quake.world.LobbyArrival;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
@@ -38,11 +39,13 @@ public final class PlayerListener implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
+        event.joinMessage(MiniMessage.miniMessage().deserialize("[<b><green>+</green></b>] <b><gray>"+event.getPlayer().getName()+"</gray></b>"));
         lobbyArrival.resetAndSend(event.getPlayer());
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
+        event.quitMessage(MiniMessage.miniMessage().deserialize("[<b><red>-</red></b>] <b><gray>"+event.getPlayer().getName()+"</gray></b>"));
         game.leave(event.getPlayer());
     }
 
