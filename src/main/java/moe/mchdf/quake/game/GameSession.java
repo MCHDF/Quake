@@ -290,7 +290,6 @@ public final class GameSession {
 
     private void finishGame(boolean cancelled) {
         timer.cancel();
-        gameTeams.clear();
         for (UUID playerId : participants) {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
@@ -298,6 +297,11 @@ public final class GameSession {
                 restoreWalkSpeed(player);
                 display.hide(player);
                 lobbyArrival.resetAndSend(player);
+                String team = gameTeams.getTeamOf(player);
+                if (!cancelled && team != null) {
+                    String opponent = team.equals("RED") ? "BLUE" : "RED";
+                    display.showResult(player, gameTeams.getTeamScore(team), gameTeams.getTeamScore(opponent));
+                }
                 player.sendMessage(Component.text(cancelled
                         ? "참여 인원 부족으로 게임이 취소되었습니다."
                         : "게임이 종료되었습니다.", NamedTextColor.GOLD));
@@ -306,6 +310,7 @@ public final class GameSession {
                 }
             }
         }
+        gameTeams.clear();
         previousWalkSpeeds.clear();
         returnLocations.clear();
         participants.clear();
