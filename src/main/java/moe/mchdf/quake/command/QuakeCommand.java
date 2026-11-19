@@ -19,7 +19,10 @@ import moe.mchdf.quake.world.GameWorldStatus;
 import moe.mchdf.quake.world.LobbyWorld;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickCallback;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
@@ -27,10 +30,15 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class QuakeCommand implements TabExecutor {
+    private static final int MAX_TIMER_SECONDS = 180;
+
     private enum WorldSubcommand {
-        CREATE, DELETE, TP, LIST, PLAYERS, STATUS, SPAWN, LOBBY;
+        CREATE, DELETE, TP, PLAYERS, STATUS, SPAWN, LOBBY;
 
         static WorldSubcommand parse(String input) {
+            if (input.equalsIgnoreCase("list")) {
+                return TP;
+            }
             for (WorldSubcommand subcommand : values()) {
                 if (subcommand.name().equalsIgnoreCase(input)) {
                     return subcommand;
@@ -69,11 +77,11 @@ public final class QuakeCommand implements TabExecutor {
             int seconds;
             try {
                 seconds = Integer.parseInt(args[1]);
-                if (seconds <= 0) {
+                if (seconds < 1 || seconds > MAX_TIMER_SECONDS) {
                     throw new NumberFormatException();
                 }
             } catch (NumberFormatException exception) {
-                player.sendMessage(Component.text("시간은 1~2147483647 사이의 정수(초)로 입력해 주세요.", NamedTextColor.RED));
+                player.sendMessage(Component.text("시간은 1~" + MAX_TIMER_SECONDS + " 사이의 정수(초)로 입력해 주세요.", NamedTextColor.RED));
                 return true;
             }
             game.setGameDurationSeconds(seconds);
@@ -99,7 +107,7 @@ public final class QuakeCommand implements TabExecutor {
             return true;
         }
         if (args.length != 2 || !args[0].equalsIgnoreCase("get") || !args[1].equalsIgnoreCase("book")) {
-            player.sendMessage(Component.text("사용법: /quake get book, /quake setTimer <seconds>, /quake setScore <score>, /quake world <create|delete|tp> ..., /quake world players <name> <min> <max>, /quake world status <name> <ready|maintenance|disabled>, /quake world spawn <name> <red|blue>, /quake world lobby", NamedTextColor.YELLOW));
+            sendHelp(player);
             return true;
         }
         if (game.isRunning() && game.contains(player)) {
@@ -110,6 +118,35 @@ public final class QuakeCommand implements TabExecutor {
         return true;
     }
 
+    private void sendHelp(Player player) {
+        player.sendMessage(Component.text("Quake 명령어", NamedTextColor.GOLD, TextDecoration.BOLD)
+                .append(Component.text("  ·  클릭하여 채팅 입력창에 넣기", NamedTextColor.GRAY)
+                        .decoration(TextDecoration.BOLD, false)));
+        player.sendMessage(Component.text("미니게임", NamedTextColor.YELLOW));
+        sendHelpEntry(player, "/quake get book", "", "참여 메뉴 책 받기");
+        sendHelpEntry(player, "/quake setTimer", " <초>", "경기 시간 설정 (1~" + MAX_TIMER_SECONDS + "초)");
+        sendHelpEntry(player, "/quake setScore", " <점수>", "목표 점수 설정");
+
+        player.sendMessage(Component.text("월드 관리", NamedTextColor.YELLOW));
+        sendHelpEntry(player, "/quake world tp", "", "월드 이동 메뉴 열기");
+        sendHelpEntry(player, "/quake world create", " [월드명]", "게임 월드 생성");
+        sendHelpEntry(player, "/quake world delete", " [월드명]", "게임 월드 삭제");
+        sendHelpEntry(player, "/quake world players", " <월드명> <최소> <최대>", "참가 인원 설정");
+        sendHelpEntry(player, "/quake world status", " <월드명> <ready|maintenance|disabled>", "월드 상태 변경");
+        sendHelpEntry(player, "/quake world spawn", " <월드명> <red|blue>", "현재 위치를 팀 스폰으로 저장");
+        sendHelpEntry(player, "/quake world lobby", "", "현재 위치를 로비 스폰으로 저장");
+    }
+
+    private void sendHelpEntry(Player player, String command, String arguments, String description) {
+        String suggestion = arguments.isEmpty() ? command : command + " ";
+        Component syntax = Component.text(command, NamedTextColor.AQUA)
+                .append(Component.text(arguments, NamedTextColor.GREEN))
+                .clickEvent(ClickEvent.suggestCommand(suggestion))
+                .hoverEvent(HoverEvent.showText(Component.text(description, NamedTextColor.GRAY)));
+        player.sendMessage(Component.text("  ").append(syntax)
+                .append(Component.text("  ·  " + description, NamedTextColor.GRAY)));
+    }
+
     private boolean executeWorldCommand(Player player, String[] args) {
         WorldSubcommand subcommand = WorldSubcommand.parse(args[1]);
         if (subcommand == null) {
@@ -118,8 +155,7 @@ public final class QuakeCommand implements TabExecutor {
         return switch (subcommand) {
             case CREATE -> createWorld(player, args);
             case DELETE -> deleteWorld(player, args);
-            case TP -> tpWorld(player, args);
-            case LIST -> listWorld(player, args);
+            case TP -> tpWorld(player);
             case PLAYERS -> playersWorld(player, args);
             case STATUS -> statusWorld(player, args);
             case SPAWN -> spawnWorld(player, args);
@@ -186,28 +222,7 @@ public final class QuakeCommand implements TabExecutor {
         return true;
     }
 
-    private boolean tpWorld(Player player, String[] args) {
-        if (args.length == 2) {
-            worldTeleportMenu.open(player);
-            return true;
-        }
-        if (args.length != 3) {
-            return false;
-        }
-        var world = org.bukkit.Bukkit.getWorld(args[2]);
-        if (world == null) {
-            player.sendMessage(Component.text("로드된 월드를 찾을 수 없습니다: " + args[2], NamedTextColor.RED));
-        } else {
-            player.teleport(world.getSpawnLocation());
-            player.sendMessage(Component.text("월드로 이동했습니다: " + args[2], NamedTextColor.GREEN));
-        }
-        return true;
-    }
-
-    private boolean listWorld(Player player, String[] args) {
-        if (args.length != 2) {
-            return false;
-        }
+    private boolean tpWorld(Player player) {
         worldTeleportMenu.open(player);
         return true;
     }
@@ -317,7 +332,7 @@ public final class QuakeCommand implements TabExecutor {
                     .toList();
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("setTimer")) {
-            return List.of("180").stream().filter(option -> option.startsWith(args[1])).toList();
+            return List.of(Integer.toString(MAX_TIMER_SECONDS)).stream().filter(option -> option.startsWith(args[1])).toList();
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("setScore")) {
             return List.of("5").stream().filter(option -> option.startsWith(args[1])).toList();
