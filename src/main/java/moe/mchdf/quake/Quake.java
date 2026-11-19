@@ -13,6 +13,7 @@ import moe.mchdf.quake.menu.WorldDeleteMenu;
 import moe.mchdf.quake.menu.WorldTeleportMenu;
 import moe.mchdf.quake.world.GameWorld;
 import moe.mchdf.quake.world.GameWorldListener;
+import moe.mchdf.quake.world.LobbyArrival;
 import moe.mchdf.quake.world.LobbyWorld;
 import moe.mchdf.quake.weapon.RailGunListener;
 import moe.mchdf.quake.weapon.RailGunWeapon;
@@ -34,6 +35,7 @@ public final class Quake extends JavaPlugin {
         gameWorld.loadAll();
         LobbyWorld lobby = new LobbyWorld(new LobbyRepository(database));
         MenuBook book = new MenuBook(this);
+        LobbyArrival lobbyArrival = new LobbyArrival(lobby, book);
         game = new GameSession(this, book, gameWorld);
         MinigameMenu menu = new MinigameMenu(this, game);
         WorldDeleteMenu worldDeleteMenu = new WorldDeleteMenu(this, gameWorld);
@@ -43,7 +45,7 @@ public final class Quake extends JavaPlugin {
         command.setExecutor(executor);
         command.setTabCompleter(executor);
         RailGunWeapon railGunWeapon = new RailGunWeapon(game.getGameTeams());
-        getServer().getPluginManager().registerEvents(new PlayerListener(book, menu, game, lobby), this);
+        getServer().getPluginManager().registerEvents(new PlayerListener(book, menu, game, lobbyArrival), this);
         getServer().getPluginManager().registerEvents(worldDeleteMenu, this);
         getServer().getPluginManager().registerEvents(worldTeleportMenu, this);
         getServer().getPluginManager().registerEvents(game.getDoubleJump(), this);
