@@ -3,7 +3,7 @@ package moe.mchdf.quake.listener;
 import moe.mchdf.quake.game.GameSession;
 import moe.mchdf.quake.menu.MenuBook;
 import moe.mchdf.quake.menu.MinigameMenu;
-import moe.mchdf.quake.world.LobbyWorld;
+import moe.mchdf.quake.world.LobbyWorldManager;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.event.EventHandler;
@@ -18,9 +18,9 @@ public final class PlayerListener implements Listener {
     private final MenuBook book;
     private final MinigameMenu menu;
     private final GameSession game;
-    private final LobbyWorld lobby;
+    private final LobbyWorldManager lobby;
 
-    public PlayerListener(MenuBook book, MinigameMenu menu, GameSession game, LobbyWorld lobby) {
+    public PlayerListener(MenuBook book, MinigameMenu menu, GameSession game, LobbyWorldManager lobby) {
         this.book = book;
         this.menu = menu;
         this.game = game;
