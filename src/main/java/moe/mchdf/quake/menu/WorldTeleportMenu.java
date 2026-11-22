@@ -3,7 +3,7 @@ package moe.mchdf.quake.menu;
 import java.util.List;
 import java.util.UUID;
 import moe.mchdf.quake.world.GameWorld;
-import moe.mchdf.quake.world.LobbyWorld;
+import moe.mchdf.quake.world.LobbyWorldManager;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -30,9 +30,9 @@ public final class WorldTeleportMenu implements Listener {
 
     private final JavaPlugin plugin;
     private final GameWorld gameWorld;
-    private final LobbyWorld lobby;
+    private final LobbyWorldManager lobby;
 
-    public WorldTeleportMenu(JavaPlugin plugin, GameWorld gameWorld, LobbyWorld lobby) {
+    public WorldTeleportMenu(JavaPlugin plugin, GameWorld gameWorld, LobbyWorldManager lobby) {
         this.plugin = plugin;
         this.gameWorld = gameWorld;
         this.lobby = lobby;

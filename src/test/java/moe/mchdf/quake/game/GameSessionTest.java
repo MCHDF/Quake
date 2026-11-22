@@ -15,7 +15,7 @@ import moe.mchdf.quake.world.GameWorld;
 import moe.mchdf.quake.world.GameWorldInfo;
 import moe.mchdf.quake.world.GameWorldStatus;
 import moe.mchdf.quake.world.LobbyArrival;
-import moe.mchdf.quake.world.LobbyWorld;
+import moe.mchdf.quake.world.LobbyWorldManager;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.kyori.adventure.title.Title;
@@ -72,7 +72,7 @@ class GameSessionTest {
                     tasks.add(task);
                     return task.handle;
                 });
-        LobbyWorld lobby = mock(LobbyWorld.class);
+        LobbyWorldManager lobby = mock(LobbyWorldManager.class);
         lobbySpawn = new Location(mock(World.class), 1, 64, 2);
         when(lobby.spawn()).thenReturn(lobbySpawn);
         game = new GameSession(plugin, book, worlds, new LobbyArrival(lobby, book));

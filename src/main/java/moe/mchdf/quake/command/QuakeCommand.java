@@ -16,13 +16,14 @@ import moe.mchdf.quake.menu.WorldDeleteMenu;
 import moe.mchdf.quake.menu.WorldTeleportMenu;
 import moe.mchdf.quake.world.GameWorld;
 import moe.mchdf.quake.world.GameWorldStatus;
-import moe.mchdf.quake.world.LobbyWorld;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickCallback;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
@@ -52,19 +53,17 @@ public final class QuakeCommand implements TabExecutor {
     private final GameSession game;
     private final GameWorld gameWorld;
     private final JavaPlugin plugin;
-    private final LobbyWorld lobby;
     private final WorldDeleteMenu worldDeleteMenu;
     private final WorldTeleportMenu worldTeleportMenu;
 
     public QuakeCommand(JavaPlugin plugin, MenuBook book, GameSession game, GameWorld gameWorld,
-                        WorldDeleteMenu worldDeleteMenu, WorldTeleportMenu worldTeleportMenu, LobbyWorld lobby) {
+                        WorldDeleteMenu worldDeleteMenu, WorldTeleportMenu worldTeleportMenu) {
         this.plugin = plugin;
         this.book = book;
         this.game = game;
         this.gameWorld = gameWorld;
         this.worldDeleteMenu = worldDeleteMenu;
         this.worldTeleportMenu = worldTeleportMenu;
-        this.lobby = lobby;
     }
 
     @Override
@@ -103,7 +102,7 @@ public final class QuakeCommand implements TabExecutor {
             player.sendMessage(Component.text("승점 기준을 " + score + "점으로 설정했습니다. 다음 게임부터 적용됩니다.", NamedTextColor.GREEN));
             return true;
         }
-        if (args.length >= 2 && args[0].equalsIgnoreCase("world") && executeWorldCommand(player, args)) {
+        if (args.length >= 2 && args[0].equalsIgnoreCase("world") && executeWorldCommand(player, command, args)) {
             return true;
         }
         if (args.length != 2 || !args[0].equalsIgnoreCase("get") || !args[1].equalsIgnoreCase("book")) {
@@ -134,7 +133,9 @@ public final class QuakeCommand implements TabExecutor {
         sendHelpEntry(player, "/quake world players", " <최소> <최대>", "현재 게임 월드의 참가 인원 설정");
         sendHelpEntry(player, "/quake world status", " <ready|maintenance|disabled>", "현재 게임 월드의 상태 변경");
         sendHelpEntry(player, "/quake world spawn", " <red|blue>", "현재 위치를 팀 스폰으로 저장");
-        sendHelpEntry(player, "/quake world lobby", "", "현재 위치를 로비 스폰으로 저장");
+        sendHelpEntry(player, "/quake world lobby move", "", "현재 위치로 로비 이전");
+        sendHelpEntry(player, "/quake world lobby set", " [현재 월드명]", "현재 위치로 로비 지정");
+        sendHelpEntry(player, "/quake world lobby clear", "", "로비 설정 초기화");
     }
 
     private void sendHelpEntry(Player player, String command, String arguments, String description) {
@@ -147,7 +148,7 @@ public final class QuakeCommand implements TabExecutor {
                 .append(Component.text("  ·  " + description, NamedTextColor.GRAY)));
     }
 
-    private boolean executeWorldCommand(Player player, String[] args) {
+    private boolean executeWorldCommand(Player player, Command command, String[] args) {
         WorldSubcommand subcommand = WorldSubcommand.parse(args[1]);
         if (subcommand == null) {
             return false;
@@ -159,25 +160,102 @@ public final class QuakeCommand implements TabExecutor {
             case PLAYERS -> playersWorld(player, args);
             case STATUS -> statusWorld(player, args);
             case SPAWN -> spawnWorld(player, args);
-            case LOBBY -> setLobby(player, args);
+            case LOBBY -> manageLobby(player, command, args);
         };
     }
 
-    private boolean setLobby(Player player, String[] args) {
-        if (args.length != 2) {
-            return false;
+    private boolean manageLobby(Player player, Command command, String[] args) {
+        if (!command.testPermission(player)) {
+            return true;
         }
-        String worldName = player.getWorld().getName();
         try {
-            int failed = lobby.setSpawn(player.getLocation());
-            player.sendMessage(Component.text(worldName + "에서 현재 위치를 로비 스폰으로 저장했습니다.", NamedTextColor.GREEN));
-            if (failed > 0) {
-                player.sendMessage(Component.text("기존 로비에서 " + failed + "명을 이동시키지 못했습니다.", NamedTextColor.YELLOW));
+            if (args.length == 3 && args[2].equalsIgnoreCase("clear")) {
+                gameWorld.lobby().clearLobbyWorld();
+                player.sendMessage(Component.text("로비 설정을 초기화했습니다. 기본 오버월드 스폰을 사용합니다.",
+                        NamedTextColor.GREEN));
+                return true;
             }
-        } catch (IllegalStateException exception) {
+            World destination = player.getWorld();
+            if (args.length == 4 && args[2].equalsIgnoreCase("set")) {
+                if (!destination.getName().equals(args[3])) {
+                    throw new IllegalArgumentException("로비로 지정할 월드의 스폰 위치에 직접 서서 실행해 주세요.");
+                }
+            } else if (args.length != 2 && !(args.length == 3
+                    && (args[2].equalsIgnoreCase("set") || args[2].equalsIgnoreCase("move")))) {
+                player.sendMessage(Component.text("사용법: /quake world lobby <set [현재 월드 이름]|move|clear>",
+                        NamedTextColor.YELLOW));
+                return true;
+            }
+
+            validateLobbyDestination(destination);
+            if (gameWorld.isGameWorld(destination)) {
+                confirmLobbyMove(player, command, destination);
+            } else {
+                moveLobby(player);
+            }
+        } catch (IllegalArgumentException | IllegalStateException exception) {
             player.sendMessage(Component.text(exception.getMessage(), NamedTextColor.RED));
         }
         return true;
+    }
+
+    private void validateLobbyDestination(World world) {
+        if (gameWorld.isGameWorld(world) && gameWorld.requireInfo(world.getName()).status() == GameWorldStatus.READY) {
+            throw new IllegalStateException("READY 상태인 게임 월드는 로비로 지정할 수 없습니다.");
+        }
+    }
+
+    private void confirmLobbyMove(Player player, Command command, World destination) {
+        var ownerId = player.getUniqueId();
+        var destinationId = destination.getUID();
+        player.sendMessage(Component.text("현재 게임 월드 " + destination.getName() + "을(를) 로비로 지정할까요? ",
+                NamedTextColor.YELLOW).append(Component.text("[확인]", NamedTextColor.GREEN)
+                .clickEvent(ClickEvent.callback(audience -> {
+                    if (!(audience instanceof Player owner) || !ownerId.equals(owner.getUniqueId())) {
+                        return;
+                    }
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        if (!owner.isOnline() || !command.testPermission(owner)) {
+                            return;
+                        }
+                        if (!destinationId.equals(owner.getWorld().getUID())) {
+                            owner.sendMessage(Component.text("월드가 바뀌었습니다. 이전 명령을 다시 실행해 주세요.",
+                                    NamedTextColor.RED));
+                            return;
+                        }
+                        try {
+                            moveLobby(owner);
+                        } catch (IllegalStateException exception) {
+                            owner.sendMessage(Component.text(exception.getMessage(), NamedTextColor.RED));
+                        }
+                    });
+                }, ClickCallback.Options.builder().uses(1).build()))));
+    }
+
+    private void moveLobby(Player player) {
+        var location = player.getLocation();
+        validateLobbyDestination(location.getWorld());
+        var lobby = gameWorld.lobby();
+        var previousSpawn = lobby.spawn();
+        var previousPlayers = previousSpawn == null ? List.<Player>of()
+                : List.copyOf(previousSpawn.getWorld().getPlayers());
+        lobby.setLobbyWorld(location, player.getUniqueId());
+
+        int failed = 0;
+        for (Player previousPlayer : previousPlayers) {
+            if (game.isRunning() && game.contains(previousPlayer)) {
+                continue;
+            }
+            if (!previousPlayer.teleport(location)) {
+                failed++;
+            }
+        }
+        player.sendMessage(Component.text(location.getWorld().getName() + "의 현재 위치와 시선 방향을 로비 스폰으로 저장했습니다.",
+                NamedTextColor.GREEN));
+        if (failed > 0) {
+            player.sendMessage(Component.text("기존 로비에서 " + failed + "명을 이동시키지 못했습니다.",
+                    NamedTextColor.YELLOW));
+        }
     }
 
     private boolean createWorld(Player player, String[] args) {
@@ -326,7 +404,7 @@ public final class QuakeCommand implements TabExecutor {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (!(sender instanceof Player) || !command.testPermissionSilent(sender)) {
+        if (!(sender instanceof Player player) || !command.testPermissionSilent(sender)) {
             return List.of();
         }
         if (args.length == 1) {
@@ -345,12 +423,12 @@ public final class QuakeCommand implements TabExecutor {
             return List.of("book");
         }
         if (args.length >= 2 && args[0].equalsIgnoreCase("world")) {
-            return completeWorldCommand(args);
+            return completeWorldCommand(player, args);
         }
         return List.of();
     }
 
-    private List<String> completeWorldCommand(String[] args) {
+    private List<String> completeWorldCommand(Player player, String[] args) {
         if (args.length == 2) {
             return Arrays.stream(WorldSubcommand.values())
                     .map(subcommand -> subcommand.name().toLowerCase(Locale.ROOT))
@@ -362,9 +440,18 @@ public final class QuakeCommand implements TabExecutor {
                 case PLAYERS -> List.of("2", "4");
                 case STATUS -> List.of("ready", "maintenance", "disabled");
                 case SPAWN -> List.of("red", "blue");
+                case LOBBY -> List.of("set", "move", "clear");
                 case null, default -> List.of();
             };
             return options.stream().filter(option -> option.startsWith(args[2].toLowerCase(Locale.ROOT))).toList();
+        }
+        if (args.length == 4 && subcommand == WorldSubcommand.LOBBY && args[2].equalsIgnoreCase("set")) {
+            World world = player.getWorld();
+            String name = world.getName();
+            if (name.startsWith(args[3]) && (!gameWorld.isGameWorld(world)
+                    || gameWorld.requireInfo(name).status() != GameWorldStatus.READY)) {
+                return List.of(name);
+            }
         }
         return List.of();
     }

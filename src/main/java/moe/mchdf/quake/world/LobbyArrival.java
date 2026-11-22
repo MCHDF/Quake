@@ -6,10 +6,10 @@ import org.bukkit.Location;
 import org.bukkit.entity.Player;
 
 public final class LobbyArrival {
-    private final LobbyWorld lobby;
+    private final LobbyWorldManager lobby;
     private final MenuBook book;
 
-    public LobbyArrival(LobbyWorld lobby, MenuBook book) {
+    public LobbyArrival(LobbyWorldManager lobby, MenuBook book) {
         this.lobby = lobby;
         this.book = book;
     }
