@@ -1,13 +1,17 @@
 package moe.mchdf.quake.database;
 
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Types;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import moe.mchdf.quake.world.GameWorldInfo;
 import moe.mchdf.quake.world.GameWorldStatus;
+import moe.mchdf.quake.world.LobbyWorldInfo;
 import moe.mchdf.quake.world.TeamSpawn;
 import java.util.Map;
 import java.util.HashMap;
@@ -125,6 +129,7 @@ public final class GameWorldRepository {
                         END
                         """);
                 statement.executeUpdate("CREATE UNIQUE INDEX IF NOT EXISTS game_worlds_uuid ON game_worlds(world_uuid)");
+                initializeLobbySchema(statement);
                 connection.commit();
             } catch (SQLException exception) {
                 connection.rollback();
@@ -133,6 +138,42 @@ public final class GameWorldRepository {
         } catch (SQLException exception) {
             throw new IllegalStateException("게임 월드 테이블을 준비하지 못했습니다.", exception);
         }
+    }
+
+    private static void initializeLobbySchema(Statement statement) throws SQLException {
+        statement.executeUpdate("""
+                CREATE TABLE IF NOT EXISTS lobby_worlds (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    world_name TEXT NOT NULL,
+                    world_uuid TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    updated_by TEXT
+                )
+                """);
+        try (var columns = statement.executeQuery("SELECT 1 FROM pragma_table_info('lobby_worlds') WHERE name = 'x'")) {
+            if (columns.next()) {
+                return;
+            }
+        }
+        for (String column : List.of("x", "y", "z", "yaw", "pitch")) {
+            statement.executeUpdate("ALTER TABLE lobby_worlds ADD COLUMN " + column + " REAL");
+        }
+        try (var legacy = statement.executeQuery(
+                "SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = 'lobby_spawn'")) {
+            if (!legacy.next()) {
+                return;
+            }
+        }
+        statement.executeUpdate("""
+                INSERT INTO lobby_worlds (id, world_name, world_uuid, updated_at, x, y, z, yaw, pitch)
+                SELECT id, '', world_uuid, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), x, y, z, yaw, pitch
+                FROM lobby_spawn WHERE id = 1
+                ON CONFLICT(id) DO UPDATE SET
+                    world_name = CASE WHEN lobby_worlds.world_uuid = excluded.world_uuid THEN world_name ELSE '' END,
+                    updated_by = CASE WHEN lobby_worlds.world_uuid = excluded.world_uuid THEN updated_by ELSE NULL END,
+                    world_uuid = excluded.world_uuid, updated_at = excluded.updated_at,
+                    x = excluded.x, y = excluded.y, z = excluded.z, yaw = excluded.yaw, pitch = excluded.pitch
+                """);
     }
 
     public List<GameWorldInfo> findAll() {
@@ -273,6 +314,70 @@ public final class GameWorldRepository {
             statement.executeUpdate();
         } catch (SQLException exception) {
             throw new IllegalStateException("게임 월드 UUID를 저장하지 못했습니다: " + name, exception);
+        }
+    }
+
+    public Optional<LobbyWorldInfo> findLobbyWorld() {
+        try (var connection = database.getConnection();
+             var statement = connection.prepareStatement("SELECT * FROM lobby_worlds WHERE id = 1");
+             var rows = statement.executeQuery()) {
+            if (!rows.next()) {
+                return Optional.empty();
+            }
+            return Optional.of(new LobbyWorldInfo(
+                    rows.getString("world_name"),
+                    uuid(rows.getString("world_uuid")),
+                    Instant.parse(rows.getString("updated_at")),
+                    uuid(rows.getString("updated_by")),
+                    rows.getObject("x") == null ? null : new LobbyWorldInfo.Spawn(
+                            rows.getDouble("x"), rows.getDouble("y"), rows.getDouble("z"),
+                            rows.getFloat("yaw"), rows.getFloat("pitch"))));
+        } catch (SQLException exception) {
+            throw new IllegalStateException("로비 월드 설정을 읽지 못했습니다.", exception);
+        }
+    }
+
+    public void setLobbyWorld(LobbyWorldInfo lobbyWorld) {
+        try (var connection = database.getConnection();
+             var statement = connection.prepareStatement("""
+                     INSERT INTO lobby_worlds (id, world_name, world_uuid, updated_at, updated_by, x, y, z, yaw, pitch)
+                     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     ON CONFLICT(id) DO UPDATE SET
+                     world_name = excluded.world_name,
+                     world_uuid = excluded.world_uuid,
+                     updated_at = excluded.updated_at,
+                     updated_by = excluded.updated_by,
+                     x = excluded.x, y = excluded.y, z = excluded.z,
+                     yaw = excluded.yaw, pitch = excluded.pitch
+                     """)) {
+            statement.setString(1, lobbyWorld.name());
+            statement.setString(2, lobbyWorld.worldUuid().toString());
+            statement.setString(3, lobbyWorld.updatedAt().toString());
+            statement.setString(4, text(lobbyWorld.updatedBy()));
+            var spawn = lobbyWorld.spawn();
+            if (spawn == null) {
+                for (int index = 5; index <= 9; index++) {
+                    statement.setNull(index, Types.REAL);
+                }
+            } else {
+                statement.setDouble(5, spawn.x());
+                statement.setDouble(6, spawn.y());
+                statement.setDouble(7, spawn.z());
+                statement.setFloat(8, spawn.yaw());
+                statement.setFloat(9, spawn.pitch());
+            }
+            statement.executeUpdate();
+        } catch (SQLException exception) {
+            throw new IllegalStateException("로비 월드 설정을 저장하지 못했습니다: " + lobbyWorld.name(), exception);
+        }
+    }
+
+    public void clearLobbyWorld() {
+        try (var connection = database.getConnection();
+             var statement = connection.prepareStatement("DELETE FROM lobby_worlds WHERE id = 1")) {
+            statement.executeUpdate();
+        } catch (SQLException exception) {
+            throw new IllegalStateException("로비 월드 설정을 초기화하지 못했습니다.", exception);
         }
     }
 

@@ -8,6 +8,7 @@ import java.util.UUID;
 import java.time.Instant;
 import moe.mchdf.quake.world.GameWorldInfo;
 import moe.mchdf.quake.world.GameWorldStatus;
+import moe.mchdf.quake.world.LobbyWorldInfo;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
@@ -194,5 +195,24 @@ class GameWorldRepositoryTest {
         repository.add(info("safe"));
         repository.remove(name);
         assertEquals(List.of("safe"), names(open()));
+    }
+
+    @Test
+    void lobbyWorldPersistsAndCanBeReplacedOrCleared() throws Exception {
+        GameWorldRepository repository = open();
+        assertTrue(repository.findLobbyWorld().isEmpty());
+
+        LobbyWorldInfo first = new LobbyWorldInfo("lobby", UUID.randomUUID(),
+                Instant.parse("2026-11-16T00:00:00Z"), UUID.randomUUID());
+        repository.setLobbyWorld(first);
+        assertEquals(first, open().findLobbyWorld().orElseThrow());
+
+        LobbyWorldInfo second = new LobbyWorldInfo("spawn", UUID.randomUUID(),
+                Instant.parse("2026-11-16T01:00:00Z"), UUID.randomUUID());
+        repository.setLobbyWorld(second);
+        assertEquals(second, open().findLobbyWorld().orElseThrow());
+
+        repository.clearLobbyWorld();
+        assertTrue(open().findLobbyWorld().isEmpty());
     }
 }
