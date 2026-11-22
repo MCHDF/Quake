@@ -204,8 +204,11 @@ public final class GameWorld {
         return Bukkit.getWorlds().stream().filter(this::isGameWorld).toList();
     }
 
-    public List<World> listTeleportWorlds() {
-        return Bukkit.getWorlds().stream().filter(this::isTeleportWorld).toList();
+    public List<World> listTeleportWorlds(World lobbyWorld) {
+        return Bukkit.getWorlds().stream()
+                .filter(world -> isTeleportWorld(world) || world.equals(lobbyWorld))
+                .sorted(Comparator.comparing(world -> !NamespacedKey.minecraft("overworld").equals(world.getKey())))
+                .toList();
     }
 
     public boolean isTeleportWorld(World world) {
@@ -319,6 +322,9 @@ public final class GameWorld {
     }
 
     public boolean delete(World world) {
+        if (NamespacedKey.minecraft("overworld").equals(world.getKey())) {
+            throw new IllegalStateException("기본 오버월드는 삭제할 수 없습니다.");
+        }
         if (!isGameWorld(world)) {
             throw new IllegalStateException("등록된 게임 월드만 삭제할 수 있습니다: " + world.getName());
         }

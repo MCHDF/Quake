@@ -14,6 +14,12 @@ import moe.mchdf.quake.item.RailGunItem;
 import moe.mchdf.quake.world.GameWorld;
 import moe.mchdf.quake.world.GameWorldInfo;
 import moe.mchdf.quake.world.GameWorldStatus;
+import moe.mchdf.quake.world.LobbyArrival;
+import moe.mchdf.quake.world.LobbyWorld;
+import net.kyori.adventure.bossbar.BossBar;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import net.kyori.adventure.title.Title;
+import org.bukkit.GameMode;
 import org.bukkit.World;
 import org.bukkit.Location;
 import org.bukkit.inventory.PlayerInventory;
@@ -29,6 +35,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
+import org.mockito.ArgumentCaptor;
 
 class GameSessionTest {
     private final Map<UUID, Player> online = new HashMap<>();
@@ -38,6 +45,7 @@ class GameSessionTest {
     private GameSession game;
     private MenuBook book;
     private GameWorld worlds;
+    private Location lobbySpawn;
     private MockedStatic<RailGunItem> railGun;
     private final List<GameWorldInfo> ready = new ArrayList<>();
 
@@ -64,7 +72,10 @@ class GameSessionTest {
                     tasks.add(task);
                     return task.handle;
                 });
-        game = new GameSession(plugin, book, worlds);
+        LobbyWorld lobby = mock(LobbyWorld.class);
+        lobbySpawn = new Location(mock(World.class), 1, 64, 2);
+        when(lobby.spawn()).thenReturn(lobbySpawn);
+        game = new GameSession(plugin, book, worlds, new LobbyArrival(lobby, book));
     }
 
     @AfterEach
@@ -128,13 +139,21 @@ class GameSessionTest {
         tickSeconds(30);
         assertEquals("arena_a", game.getCurrentWorld().name());
         ready.clear();
+        Player first = player();
+        game.join(first);
+        assertFalse(game.contains(first));
+        verify(first).sendMessage(net.kyori.adventure.text.Component.text(
+                "로테이션에 준비된 게임 맵이 없어 참여할 수 없습니다.",
+                net.kyori.adventure.text.format.NamedTextColor.RED));
         tickSeconds(30);
         assertNull(game.getCurrentWorld());
-        game.join(player());
-        game.join(player());
+        Player second = player();
+        game.join(second);
+        assertFalse(game.contains(second));
         assertEquals(GameState.WAITING, game.getState());
         ready.add(arena("arena_c", 2, 16));
-        tickSeconds(30);
+        game.join(first);
+        game.join(second);
         assertEquals(GameState.COUNTDOWN, game.getState());
         assertEquals("arena_c", game.getCurrentWorld().name());
     }
@@ -257,6 +276,16 @@ class GameSessionTest {
         return player;
     }
 
+    private void verifyLobbyArrival(Player player) {
+        verify(player.getInventory()).clear();
+        verify(player.getInventory()).setHeldItemSlot(0);
+        verify(book).giveMenuBook(player);
+        verify(player).setGameMode(GameMode.ADVENTURE);
+        verify(player).teleport(lobbySpawn);
+        Location original = player.getLocation();
+        verify(player, never()).teleport(original);
+    }
+
     private void disconnect(Player player) {
         online.remove(player.getUniqueId());
         game.leave(player);
@@ -353,8 +382,9 @@ class GameSessionTest {
         assertTrue(game.contains(third));
         assertFalse(game.contains(first));
         assertEquals(1, tasks.stream().filter(task -> !task.cancelled).count());
-        verify(book).giveMenuBook(second);
-        verify(book).giveMenuBook(third);
+        verifyLobbyArrival(second);
+        verifyLobbyArrival(third);
+        verify(first, never()).teleport(lobbySpawn);
     }
 
     @Test
@@ -418,7 +448,7 @@ class GameSessionTest {
     }
 
     @Test
-    void normalEndPromotesQueueAndStartsExactlyOneCountdown() {
+    void normalEndPromotesQueueAndReturningPlayersAndStartsExactlyOneCountdown() {
         game.setGameDurationSeconds(3);
         Player first = player();
         Player second = player();
@@ -433,10 +463,27 @@ class GameSessionTest {
         assertTrue(game.isQueued(next));
         assertFalse(game.contains(next));
         verify(next, never()).showBossBar(any());
+        var bar = ArgumentCaptor.forClass(BossBar.class);
+        verify(first).showBossBar(bar.capture());
+        var scoreChanged = ArgumentCaptor.forClass(Runnable.class);
+        GameTeams gameTeams = teams.constructed().getFirst();
+        verify(gameTeams).setScoreChangedListener(scoreChanged.capture());
+        when(gameTeams.getTeamScore("RED")).thenReturn(3);
+        when(gameTeams.getTeamScore("BLUE")).thenReturn(2);
+        scoreChanged.getValue().run();
+        var plainText = PlainTextComponentSerializer.plainText();
+        assertEquals("RED 3  |  BLUE 2  |  목표 5점  |  00:03",
+                plainText.serialize(bar.getValue().name()));
         tickSeconds(3);
-        assertFalse(game.contains(first));
-        assertFalse(game.contains(second));
-        verify(book).giveMenuBook(first);
+        var result = ArgumentCaptor.forClass(Title.class);
+        verify(first).showTitle(result.capture());
+        assertEquals("승리", plainText.serialize(result.getValue().title()));
+        assertEquals("최종 점수  |  RED 3  |  BLUE 2", plainText.serialize(result.getValue().subtitle()));
+        assertTrue(game.contains(first));
+        assertTrue(game.contains(second));
+        verifyLobbyArrival(first);
+        verifyLobbyArrival(second);
+        verify(next, never()).teleport(lobbySpawn);
         assertTrue(game.contains(next));
         assertTrue(game.contains(other));
         assertFalse(game.isQueued(next));
@@ -484,7 +531,7 @@ class GameSessionTest {
             assertFalse(game.isQueued(applicant));
             assertFalse(game.contains(applicant));
         }
-        assertEquals(GameState.WAITING, game.getState());
+        assertEquals(GameState.COUNTDOWN, game.getState());
     }
 
     @Test
@@ -501,7 +548,7 @@ class GameSessionTest {
         tickSeconds(30);
         assertTrue(game.isRunning());
         tickSeconds(1);
-        assertEquals(GameState.WAITING, game.getState());
+        assertEquals(GameState.COUNTDOWN, game.getState());
         assertEquals(1, tasks.stream().filter(task -> !task.cancelled).count());
     }
 

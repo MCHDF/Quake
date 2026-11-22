@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.List;
 import moe.mchdf.quake.world.GameWorld;
 import moe.mchdf.quake.world.GameWorldInfo;
+import moe.mchdf.quake.world.LobbyArrival;
 import org.bukkit.Location;
 import org.bukkit.World;
 import java.util.Set;
@@ -24,9 +25,11 @@ public final class GameSession {
     private static final float WALK_SPEED_MULTIPLIER = 2.0F;
     private final MenuBook book;
     private final GameWorld worlds;
+    private final LobbyArrival lobbyArrival;
     private GameWorldInfo currentWorld;
     private final WorldRotation worldRotation = new WorldRotation();
     private int waitingRemaining;
+    private int gameRemaining;
     private final Map<UUID, Location> returnLocations = new HashMap<>();
     private final Map<UUID, Float> previousWalkSpeeds = new HashMap<>();
     // During a game, this set contains only the players who joined before it started.
@@ -39,7 +42,8 @@ public final class GameSession {
     private final GameSettings settings;
     private GameState state = GameState.WAITING;
 
-    public GameSession(JavaPlugin plugin, MenuBook book, GameWorld worlds) {
+    public GameSession(JavaPlugin plugin, MenuBook book, GameWorld worlds, LobbyArrival lobbyArrival) {
+        this.lobbyArrival = lobbyArrival;
         this.worlds = worlds;
         this.book = book;
         timer = new GameTimer(plugin);
@@ -63,7 +67,15 @@ public final class GameSession {
         return nextGameQueue.contains(player.getUniqueId());
     }
 
+    public boolean hasReadyWorlds() {
+        return !worlds.readyWorlds().isEmpty();
+    }
+
     public void join(Player player) {
+        if (!hasReadyWorlds()) {
+            player.sendMessage(Component.text("로테이션에 준비된 게임 맵이 없어 참여할 수 없습니다.", NamedTextColor.RED));
+            return;
+        }
         if (isRunning()) {
             if (contains(player)) {
                 player.sendMessage(Component.text("이미 현재 게임에 참여 중입니다.", NamedTextColor.YELLOW));
@@ -254,7 +266,8 @@ public final class GameSession {
             }
         }
         state = GameState.RUNNING;
-        gameTeams.setTargetScore(settings.targetScore());
+        int targetScore = settings.targetScore();
+        gameTeams.setTargetScore(targetScore);
         gameTeams.setTargetReachedListener(() -> finishGame(false));
         for (UUID playerId : participants) {
             Player player = Bukkit.getPlayer(playerId);
@@ -271,8 +284,12 @@ public final class GameSession {
         }
         // Capture the duration so configuration changes apply only to the next game.
         int duration = settings.durationSeconds();
+        Runnable updateScoreDisplay = () -> display.running(gameRemaining, duration,
+                gameTeams.getTeamScore("RED"), gameTeams.getTeamScore("BLUE"), targetScore);
+        gameTeams.setScoreChangedListener(updateScoreDisplay);
         timer.start(duration, remaining -> {
-            display.running(remaining, duration);
+            gameRemaining = remaining;
+            updateScoreDisplay.run();
             gameTeams.updateTabListFooter();
         },
                 () -> finishGame(false));
@@ -287,25 +304,30 @@ public final class GameSession {
 
     private void finishGame(boolean cancelled) {
         timer.cancel();
-        gameTeams.clear();
+        int redScore = gameTeams.getTeamScore("RED");
+        int blueScore = gameTeams.getTeamScore("BLUE");
         for (UUID playerId : participants) {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
                 doubleJump.disable(player);
                 restoreWalkSpeed(player);
-                RailGunItem.removeFromInventory(player);
                 display.hide(player);
+                lobbyArrival.resetAndSend(player);
+                String team = gameTeams.getTeamOf(player);
+                if (!cancelled && team != null) {
+                    display.showResult(player, team, redScore, blueScore);
+                }
                 player.sendMessage(Component.text(cancelled
                         ? "참여 인원 부족으로 게임이 취소되었습니다."
                         : "게임이 종료되었습니다.", NamedTextColor.GOLD));
-                book.giveMenuBook(player);
-                if (cancelled && player.isOnline()) {
+                if (player.isOnline()) {
                     nextGameQueue.add(playerId);
                 }
             }
         }
+        gameTeams.clear();
         previousWalkSpeeds.clear();
-        returnPlayers();
+        returnLocations.clear();
         participants.clear();
         state = GameState.WAITING;
         promoteQueue(cancelled);

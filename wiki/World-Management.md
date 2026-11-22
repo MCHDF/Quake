@@ -2,7 +2,7 @@
 
 ## 등록과 저장
 
-게임 월드는 `plugins/Quake/quake.db`의 `game_worlds` 테이블에 저장합니다. 서버 시작 시 등록되어 정상 로드된 월드만 목록, 선택 메뉴, 자동 로테이션에 표시됩니다.
+게임 월드는 `plugins/Quake/quake.db`의 `game_worlds` 테이블에 저장합니다. 월드 목록과 이동 메뉴에는 기본 오버월드, 로비, 정상 로드된 게임 월드가 표시됩니다. 기본 오버월드는 첫 칸에 표시되며 삭제할 수 없습니다. 로비는 파란색, 기본 오버월드는 회색, 게임 월드는 준비 상태에 따라 초록색(READY), 노란색(MAINTENANCE), 빨간색(DISABLED) 유리창으로 표시됩니다. 기본 오버월드가 로비 역할을 할 때는 파란색을 사용합니다. 게임 월드 삭제 메뉴와 자동 로테이션은 등록된 게임 월드를 대상으로 합니다.
 
 - 블록·청크·기본 월드 스폰은 월드 폴더에 저장합니다.
 - 팀별 스폰은 SQLite에 저장합니다.
@@ -51,9 +51,9 @@
 맵 제작 후 각 팀의 시작 위치에서 스폰을 저장합니다. 좌표와 시선 방향(yaw/pitch)을 함께 저장합니다.
 
 ```text
-/quake world spawn arena red
-/quake world spawn arena blue
-/quake world status arena ready
+/quake world spawn red
+/quake world spawn blue
+/quake world status ready
 ```
 
 양 팀 스폰이 모두 있어야 `READY`로 전환할 수 있습니다. `READY`를 다시 실행해도 순서는 바뀌지 않습니다. `MAINTENANCE` 또는 `DISABLED`로 변경하면 이후 로테이션에서 제외되고, 다시 `READY`로 변경하면 대기 목록 끝에 추가됩니다. 이미 진행 중인 게임은 끝까지 진행합니다.

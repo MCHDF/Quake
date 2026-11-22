@@ -8,7 +8,7 @@ load: POSTWORLD
 commands:
   quake:
     description: Quake 미니게임 관리 명령어
-    usage: /quake world <create|delete|tp|list|players|status|spawn|lobby> ...
+    usage: /quake world <create|delete|tp|players|status|spawn|lobby> ...
     permission: quake.command
     permission-message: 이 명령어를 사용할 권한이 없습니다.
 

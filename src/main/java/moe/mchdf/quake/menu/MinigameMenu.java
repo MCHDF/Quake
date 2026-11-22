@@ -35,6 +35,7 @@ public final class MinigameMenu {
         boolean waiting = game.contains(player);
         boolean queued = game.isQueued(player);
         boolean running = game.isRunning();
+        boolean hasReadyWorlds = game.hasReadyWorlds();
         String description = running
                 ? (queued ? "다음 게임 대기 중입니다. 현재 게임 종료 후 자동으로 참여합니다."
                           : "게임이 진행 중입니다. 다음 게임 대기열에 등록할 수 있습니다.")
@@ -45,17 +46,21 @@ public final class MinigameMenu {
                         + "명 / 최대 " + currentWorld.maxPlayers() + "명)";
         String joinLabel = running ? (queued ? "다음 게임 대기 중" : "다음 게임 참여")
                 : (waiting ? "참여 대기 중" : "참여하기");
+        Component menuDescription = hasReadyWorlds
+                ? Component.text(description + "\n" + worldDescription, NamedTextColor.WHITE, TextDecoration.BOLD)
+                : Component.text("로테이션에 준비된 게임 맵이 없어 참여할 수 없습니다.",
+                        NamedTextColor.RED, TextDecoration.BOLD);
+        ActionButton joinButton = ActionButton.builder(Component.text(joinLabel,
+                        hasReadyWorlds ? NamedTextColor.GREEN : NamedTextColor.GRAY, TextDecoration.BOLD))
+                .action(hasReadyWorlds ? participationAction(playerId, true) : null)
+                .build();
         Dialog dialog = Dialog.create(builder -> builder.empty()
                 .base(DialogBase.builder(Component.text("Quake 미니게임", NamedTextColor.GOLD))
                         .canCloseWithEscape(true)
-                        .body(List.of(DialogBody.plainMessage(Component.text(
-                                description + "\n" + worldDescription,
-                                NamedTextColor.WHITE, TextDecoration.BOLD))))
+                        .body(List.of(DialogBody.plainMessage(menuDescription)))
                         .build())
                 .type(DialogType.multiAction(List.of(
-                        ActionButton.builder(Component.text(joinLabel, NamedTextColor.GREEN, TextDecoration.BOLD))
-                                .action(participationAction(playerId, true))
-                                .build(),
+                        joinButton,
                         ActionButton.builder(Component.text(running ? "대기열 취소" : "참여 취소", NamedTextColor.RED, TextDecoration.BOLD))
                                 .action(participationAction(playerId, false))
                                 .build()))
