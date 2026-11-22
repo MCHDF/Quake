@@ -25,14 +25,20 @@ public final class GameWorld {
 
     private final JavaPlugin plugin;
     private final GameWorldRepository repository;
+    private final LobbyWorldManager lobby;
     private final Map<String, Map<String, TeamSpawn>> spawns;
     private final Map<String, GameWorldInfo> gameWorlds = new HashMap<>();
 
     public GameWorld(JavaPlugin plugin, GameWorldRepository repository) {
         this.plugin = plugin;
         this.repository = repository;
+        this.lobby = new LobbyWorldManager(repository);
         this.spawns = new HashMap<>(repository.findSpawns());
         repository.findAll().forEach(info -> gameWorlds.put(info.name(), info));
+    }
+
+    public LobbyWorldManager lobby() {
+        return lobby;
     }
 
     public void loadAll() {
@@ -231,6 +237,9 @@ public final class GameWorld {
         GameWorldInfo info = requireInfo(name);
         if (status == GameWorldStatus.READY) {
             World world = Bukkit.getWorld(name);
+            if (world != null && lobby.isConfiguredWorld(world)) {
+                throw new IllegalStateException("로비를 다른 월드로 이전한 뒤 READY 상태로 변경해 주세요.");
+            }
             if (world == null || !isGameWorld(world) || !hasSpawns(name)) {
                 throw new IllegalArgumentException("준비 상태로 전환하려면 월드를 로드하고 양 팀 스폰을 설정해야 합니다.");
             }
@@ -312,6 +321,9 @@ public final class GameWorld {
     public boolean delete(World world) {
         if (!isGameWorld(world)) {
             throw new IllegalStateException("등록된 게임 월드만 삭제할 수 있습니다: " + world.getName());
+        }
+        if (lobby.isConfiguredWorld(world)) {
+            throw new IllegalStateException("현재 로비입니다. 다른 월드로 로비를 이전한 뒤 삭제해 주세요.");
         }
         if (!world.getPlayers().isEmpty()) {
             throw new IllegalStateException("플레이어가 있는 월드는 삭제할 수 없습니다.");

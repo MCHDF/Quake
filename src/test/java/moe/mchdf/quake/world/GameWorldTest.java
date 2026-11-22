@@ -6,7 +6,9 @@ import static org.mockito.ArgumentMatchers.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import java.time.Instant;
 import moe.mchdf.quake.database.GameWorldRepository;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -63,6 +65,27 @@ class GameWorldTest {
     }
 
     @Test
+    void configuredLobbyMustMoveBeforeItsWorldCanBeDeletedOrMadeReady() {
+        var repository = mock(GameWorldRepository.class);
+        var id = UUID.randomUUID();
+        var info = new GameWorldInfo("arena", id, "Arena", GameWorldStatus.MAINTENANCE, null, null);
+        when(repository.findAll()).thenReturn(List.of(info));
+        when(repository.findLobbyWorld()).thenReturn(Optional.of(new LobbyWorldInfo("arena", id, Instant.now(), null)));
+        World world = mock(World.class);
+        when(world.getName()).thenReturn("arena");
+        when(world.getUID()).thenReturn(id);
+
+        try (var bukkit = mockStatic(Bukkit.class)) {
+            bukkit.when(() -> Bukkit.getWorld("arena")).thenReturn(world);
+            var worlds = new GameWorld(mock(JavaPlugin.class), repository);
+            assertThrows(IllegalStateException.class, () -> worlds.delete(world));
+            assertThrows(IllegalStateException.class, () -> worlds.setStatus("arena", GameWorldStatus.READY));
+            bukkit.verify(() -> Bukkit.unloadWorld(world, true), never());
+            verify(repository, never()).remove("arena");
+        }
+    }
+
+    @Test
     void failedDeregistrationRestoresWorldAndKeepsRegistration() {
         var repository = mock(GameWorldRepository.class);
         var info = new GameWorldInfo("arena", UUID.randomUUID(), "Arena", GameWorldStatus.READY, null, null);
@@ -87,4 +110,5 @@ class GameWorldTest {
             bukkit.verify(() -> Bukkit.createWorld(any(org.bukkit.WorldCreator.class)));
         }
     }
+
 }
