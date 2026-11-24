@@ -94,6 +94,27 @@ class GameTeamsTest {
     }
 
     @Test
+    void scoringPublishesEventToEveryParticipantInsteadOfSendingChat() {
+        Player first = player("first");
+        Player second = player("second");
+        teams.assign(List.of(first.getUniqueId(), second.getUniqueId()));
+        List<GameEvent.PointScored> events = new java.util.ArrayList<>();
+        teams.setPointScoredListener(events::add);
+        String firstTeam = teams.getTeamOf(first);
+
+        teams.awardPoint(first, second);
+
+        assertEquals(1, events.size());
+        GameEvent.PointScored event = events.getFirst();
+        assertSame(first, event.shooter());
+        assertEquals(firstTeam, event.shooterTeam());
+        assertSame(second, event.target());
+        assertEquals(Set.of(first.getUniqueId(), second.getUniqueId()), Set.copyOf(event.recipients()));
+        verify(first, never()).sendMessage(any(Component.class));
+        verify(second, never()).sendMessage(any(Component.class));
+    }
+
+    @Test
     void emptyTeamIsDetectedFromPluginData() {
         Player first = player("first");
         Player second = player("second");

@@ -1,5 +1,6 @@
 package moe.mchdf.quake.game;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.HashMap;
 import java.util.Map;
@@ -13,8 +14,6 @@ import java.util.Set;
 import java.util.UUID;
 import moe.mchdf.quake.item.RailGunItem;
 import moe.mchdf.quake.menu.MenuBook;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -35,7 +34,7 @@ public final class GameSession {
     private final Set<UUID> participants = new LinkedHashSet<>();
     private final Set<UUID> nextGameQueue = new LinkedHashSet<>();
     private final GameTeams gameTeams = new GameTeams();
-    private final GameDisplay display = new GameDisplay();
+    private final List<GameListener> listeners = new ArrayList<>();
     private final DoubleJump doubleJump = new DoubleJump();
     private final GameTimer timer;
     private final GameSettings settings;
@@ -47,7 +46,19 @@ public final class GameSession {
         this.book = book;
         timer = new GameTimer(plugin);
         settings = new GameSettings(plugin);
+        listeners.add(new GameDisplay());
         rotateWorld();
+    }
+
+    /** 게임 이벤트 구독자 등록 (채팅 알림, 모드 패킷 전송 등) */
+    public void addListener(GameListener listener) {
+        listeners.add(listener);
+    }
+
+    private void publish(GameEvent event) {
+        for (GameListener listener : listeners) {
+            listener.onGameEvent(event);
+        }
     }
 
     public GameState getState() {
@@ -81,10 +92,13 @@ public final class GameSession {
         } else {
             participation = LobbyStatus.Participation.NONE;
         }
-        LobbyStatus.WorldSummary world = currentWorld == null ? null
+        return new LobbyStatus(state, participation, hasReadyWorlds(), currentWorldSummary(), participants.size());
+    }
+
+    private LobbyStatus.WorldSummary currentWorldSummary() {
+        return currentWorld == null ? null
                 : new LobbyStatus.WorldSummary(currentWorld.displayName(),
                         currentWorld.minPlayers(), currentWorld.maxPlayers());
-        return new LobbyStatus(state, participation, hasReadyWorlds(), world, participants.size());
     }
 
     public boolean hasReadyWorlds() {
@@ -108,7 +122,7 @@ public final class GameSession {
             return JoinResult.ALREADY_WAITING;
         }
         updateAfterJoin();
-        display.show(player);
+        publish(new GameEvent.PlayerShown(player));
         return JoinResult.JOINED;
     }
 
@@ -184,7 +198,8 @@ public final class GameSession {
         if (participants.size() >= currentWorld.minPlayers()) {
             state = GameState.COUNTDOWN;
             timer.start(GameSettings.COUNTDOWN_SECONDS,
-                    remaining -> display.countdown(currentWorld.displayName(), remaining, GameSettings.COUNTDOWN_SECONDS, participants),
+                    remaining -> publish(new GameEvent.Countdown(currentWorld.displayName(), remaining,
+                            GameSettings.COUNTDOWN_SECONDS, List.copyOf(participants))),
                     this::startGame);
         } else {
             showPlayerCount();
@@ -209,7 +224,7 @@ public final class GameSession {
         }
         doubleJump.disable(player);
         restoreWalkSpeed(player);
-        display.hide(player);
+        publish(new GameEvent.PlayerHidden(player));
         if (state == GameState.RUNNING) {
             gameTeams.remove(player);
             if (participants.size() <= 1 || gameTeams.hasEmptyTeam()) {
@@ -228,12 +243,7 @@ public final class GameSession {
     }
 
     private void showPlayerCount() {
-        if (currentWorld == null) {
-            display.noWorld();
-        } else {
-            display.rotating(currentWorld.displayName(), participants.size(), currentWorld.minPlayers(),
-                    currentWorld.maxPlayers(), waitingRemaining);
-        }
+        publish(new GameEvent.Waiting(currentWorldSummary(), participants.size(), waitingRemaining));
     }
 
     private void startGame() {
@@ -256,12 +266,7 @@ public final class GameSession {
             if (!player.teleport(worlds.teamSpawn(currentWorld.name(), gameTeams.getTeamOf(player)))) {
                 gameTeams.clear();
                 returnPlayers();
-                for (UUID applicant : participants) {
-                    Player waiting = Bukkit.getPlayer(applicant);
-                    if (waiting != null) {
-                        waiting.sendMessage(Component.text("월드 이동에 실패하여 다음 월드를 선택합니다.", NamedTextColor.RED));
-                    }
-                }
+                publish(new GameEvent.TeleportFailed(List.copyOf(participants)));
                 rotateWorld();
                 return;
             }
@@ -276,12 +281,19 @@ public final class GameSession {
                 applicants.remove();
                 Player player = Bukkit.getPlayer(id);
                 if (player != null) {
-                    display.hide(player);
-                    player.sendMessage(Component.text("이번 월드의 정원을 초과하여 다음 게임을 기다립니다.", NamedTextColor.YELLOW));
+                    publish(new GameEvent.PlayerHidden(player));
+                    publish(new GameEvent.NotAdmitted(player));
                 }
             }
         }
         state = GameState.RUNNING;
+        for (UUID playerId : participants) {
+            Player player = Bukkit.getPlayer(playerId);
+            String team = gameTeams.getTeamOf(player);
+            if (player != null && team != null) {
+                publish(new GameEvent.TeamAssigned(player, team));
+            }
+        }
         int targetScore = settings.targetScore();
         gameTeams.setTargetScore(targetScore);
         gameTeams.setTargetReachedListener(() -> finishGame(false));
@@ -300,9 +312,12 @@ public final class GameSession {
         }
         // Capture the duration so configuration changes apply only to the next game.
         int duration = settings.durationSeconds();
-        Runnable updateScoreDisplay = () -> display.running(gameRemaining, duration,
-                gameTeams.getTeamScore("RED"), gameTeams.getTeamScore("BLUE"), targetScore);
-        gameTeams.setScoreChangedListener(updateScoreDisplay);
+        Runnable updateScoreDisplay = () -> publish(new GameEvent.Running(gameRemaining, duration,
+                gameTeams.getTeamScore("RED"), gameTeams.getTeamScore("BLUE"), targetScore));
+        gameTeams.setPointScoredListener(event -> {
+            publish(event);
+            updateScoreDisplay.run();
+        });
         timer.start(duration, remaining -> {
             gameRemaining = remaining;
             updateScoreDisplay.run();
@@ -327,15 +342,9 @@ public final class GameSession {
             if (player != null) {
                 doubleJump.disable(player);
                 restoreWalkSpeed(player);
-                display.hide(player);
+                publish(new GameEvent.PlayerHidden(player));
                 lobbyArrival.resetAndSend(player);
-                String team = gameTeams.getTeamOf(player);
-                if (!cancelled && team != null) {
-                    display.showResult(player, team, redScore, blueScore);
-                }
-                player.sendMessage(Component.text(cancelled
-                        ? "참여 인원 부족으로 게임이 취소되었습니다."
-                        : "게임이 종료되었습니다.", NamedTextColor.GOLD));
+                publish(new GameEvent.GameFinished(player, gameTeams.getTeamOf(player), redScore, blueScore, cancelled));
                 if (player.isOnline()) {
                     nextGameQueue.add(playerId);
                 }
@@ -356,16 +365,14 @@ public final class GameSession {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null && player.isOnline()) {
                 participants.add(playerId);
-                player.sendMessage(Component.text(previousGameCancelled
-                        ? "이전 게임이 인원 부족으로 취소되어 다음 게임에 자동 참여했습니다."
-                        : "이전 게임이 종료되어 다음 게임에 자동 참여했습니다.", NamedTextColor.GREEN));
+                publish(new GameEvent.AutoJoined(player, previousGameCancelled));
             }
         }
         nextGameQueue.clear();
         for (UUID playerId : participants) {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
-                display.show(player);
+                publish(new GameEvent.PlayerShown(player));
             }
         }
     }
@@ -390,7 +397,7 @@ public final class GameSession {
                 doubleJump.disable(player);
                 restoreWalkSpeed(player);
                 RailGunItem.removeFromInventory(player);
-                display.hide(player);
+                publish(new GameEvent.PlayerHidden(player));
                 book.giveMenuBook(player);
             }
         }

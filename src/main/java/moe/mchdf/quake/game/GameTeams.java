@@ -4,8 +4,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -31,7 +33,7 @@ public final class GameTeams {
     private Scoreboard scoreboard;
     private int targetScore = 5;
     private Runnable targetReachedListener;
-    private Runnable scoreChangedListener;
+    private Consumer<GameEvent.PointScored> pointScoredListener;
 
     void assign(Collection<UUID> participants) {
         clear();
@@ -64,7 +66,6 @@ public final class GameTeams {
             kills.put(player.getUniqueId(), 0);
             killsObjective.getScore(player.getName()).setScore(0);
             updateTabListFooter();
-            player.sendMessage(Component.text(team.getName() + " 팀에 배정되었습니다.", team.color()));
         }
     }
 
@@ -95,8 +96,9 @@ public final class GameTeams {
         targetReachedListener = listener;
     }
 
-    void setScoreChangedListener(Runnable listener) {
-        scoreChangedListener = listener;
+    /** 득점할 때마다 호출된다. 알림 문구와 화면 갱신은 이 이벤트를 받는 쪽이 담당한다. */
+    void setPointScoredListener(Consumer<GameEvent.PointScored> listener) {
+        pointScoredListener = listener;
     }
 
     public void awardPoint(Player shooter, Player target) {
@@ -111,28 +113,10 @@ public final class GameTeams {
         if (killsObjective != null) {
             killsObjective.getScore(shooter.getName()).setScore(shooterKills);
         }
-        if (scoreChangedListener != null) {
-            scoreChangedListener.run();
-        }
         updateTabListFooter();
-
-        NamedTextColor shooterColor = colorOf(team);
-        NamedTextColor targetColor = colorOf(targetTeam);
-        Component message = Component.text("[", NamedTextColor.GRAY)
-                .append(Component.text(team, shooterColor, TextDecoration.BOLD))
-                .append(Component.text("] ", NamedTextColor.GRAY))
-                .append(Component.text(shooter.getName(), NamedTextColor.WHITE))
-                .append(Component.text(" -> ", NamedTextColor.GRAY))
-                .append(Component.text("[", NamedTextColor.GRAY))
-                .append(Component.text(targetTeam, targetColor, TextDecoration.BOLD))
-                .append(Component.text("] ", NamedTextColor.GRAY))
-                .append(Component.text(target.getName(), NamedTextColor.WHITE));
-
-        for (UUID id : new ArrayList<>(playerTeams.keySet())) {
-            Player player = Bukkit.getPlayer(id);
-            if (player != null) {
-                player.sendMessage(message);
-            }
+        if (pointScoredListener != null) {
+            pointScoredListener.accept(new GameEvent.PointScored(shooter, team, target, targetTeam,
+                    List.copyOf(playerTeams.keySet())));
         }
 
         if (newScore >= targetScore && targetReachedListener != null) {
@@ -253,7 +237,7 @@ public final class GameTeams {
         teamScores.clear();
         kills.clear();
         killsObjective = null;
-        scoreChangedListener = null;
+        pointScoredListener = null;
         targetReachedListener = null;
         if (scoreboard != null) {
             for (Team team : scoreboard.getTeams()) {

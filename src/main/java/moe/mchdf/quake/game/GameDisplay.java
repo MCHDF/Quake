@@ -14,12 +14,40 @@ import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-/** Owns the boss bar, countdown sounds, and result titles. */
-final class GameDisplay {
+/** 보스바, 카운트다운 효과음, 결과 타이틀을 담당한다. 게임 이벤트를 구독해 화면만 갱신한다. */
+final class GameDisplay implements GameListener {
     private static final Title.Times RESULT_TIMES =
             Title.Times.times(Duration.ZERO, Duration.ofSeconds(3), Duration.ofMillis(500));
     private final BossBar bar = BossBar.bossBar(Component.empty(), 0,
             BossBar.Color.GREEN, BossBar.Overlay.PROGRESS);
+
+    @Override
+    public void onGameEvent(GameEvent event) {
+        switch (event) {
+            case GameEvent.PlayerShown e -> show(e.player());
+            case GameEvent.PlayerHidden e -> hide(e.player());
+            case GameEvent.Waiting e -> {
+                if (e.world() == null) {
+                    noWorld();
+                } else {
+                    rotating(e.world().displayName(), e.participantCount(), e.world().minPlayers(),
+                            e.world().maxPlayers(), e.remainingSeconds());
+                }
+            }
+            case GameEvent.Countdown e ->
+                    countdown(e.worldName(), e.remainingSeconds(), e.totalSeconds(), e.participants());
+            case GameEvent.Running e ->
+                    running(e.remainingSeconds(), e.totalSeconds(), e.redScore(), e.blueScore(), e.targetScore());
+            case GameEvent.GameFinished e -> {
+                if (!e.cancelled() && e.team() != null) {
+                    showResult(e.player(), e.team(), e.redScore(), e.blueScore());
+                }
+            }
+            default -> {
+                // 채팅 알림 등 보스바와 관계없는 이벤트
+            }
+        }
+    }
 
     void show(Player player) {
         player.showBossBar(bar);
@@ -27,12 +55,6 @@ final class GameDisplay {
 
     void hide(Player player) {
         player.hideBossBar(bar);
-    }
-
-    void waiting(int count, int minimum) {
-        bar.name(boldExceptBars("게임 시작 최소 인원 " + count + " / " + minimum, null));
-        bar.progress(Math.min(1.0f, count / (float) minimum));
-        bar.color(BossBar.Color.GREEN);
     }
 
     void rotating(String worldName, int count, int minimum, int maximum, int remaining) {

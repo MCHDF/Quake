@@ -6,6 +6,7 @@ import moe.mchdf.quake.database.DatabaseManager;
 import moe.mchdf.quake.database.GameWorldRepository;
 import moe.mchdf.quake.game.GameSession;
 import moe.mchdf.quake.listener.PlayerListener;
+import moe.mchdf.quake.menu.GameChatNotifier;
 import moe.mchdf.quake.menu.MenuBook;
 import moe.mchdf.quake.menu.MinigameMenu;
 import moe.mchdf.quake.menu.WorldDeleteMenu;
@@ -36,6 +37,7 @@ public final class Quake extends JavaPlugin {
         MenuBook book = new MenuBook(this);
         LobbyArrival lobbyArrival = new LobbyArrival(lobby, book);
         game = new GameSession(this, book, gameWorld, lobbyArrival);
+        game.addListener(new GameChatNotifier());
         MinigameMenu menu = new MinigameMenu(this, game);
         WorldDeleteMenu worldDeleteMenu = new WorldDeleteMenu(this, gameWorld);
         WorldTeleportMenu worldTeleportMenu = new WorldTeleportMenu(this, gameWorld, lobby);

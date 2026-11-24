@@ -119,6 +119,24 @@ class GameSessionTest {
     }
 
     @Test
+    void gameLogicPublishesEventsToRegisteredListeners() {
+        List<GameEvent> events = new ArrayList<>();
+        game.addListener(events::add);
+        Player first = player();
+        Player second = player();
+        start(first, second);
+        assertTrue(events.contains(new GameEvent.PlayerShown(first)));
+        assertTrue(events.stream().anyMatch(event -> event instanceof GameEvent.Countdown));
+        assertTrue(events.contains(new GameEvent.TeamAssigned(first, "RED")));
+        assertTrue(events.stream().anyMatch(event -> event instanceof GameEvent.Running));
+
+        disconnect(first);
+        assertTrue(events.contains(new GameEvent.PlayerHidden(first)));
+        assertTrue(events.contains(new GameEvent.GameFinished(second, "RED", 0, 0, true)));
+        assertTrue(events.contains(new GameEvent.AutoJoined(second, true)));
+    }
+
+    @Test
     void lobbyStatusReflectsEachPlayersParticipation() {
         Player first = player();
         Player second = player();
@@ -491,12 +509,14 @@ class GameSessionTest {
         verify(next, never()).showBossBar(any());
         var bar = ArgumentCaptor.forClass(BossBar.class);
         verify(first).showBossBar(bar.capture());
-        var scoreChanged = ArgumentCaptor.forClass(Runnable.class);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<java.util.function.Consumer<GameEvent.PointScored>> pointScored =
+                ArgumentCaptor.forClass(java.util.function.Consumer.class);
         GameTeams gameTeams = teams.constructed().getFirst();
-        verify(gameTeams).setScoreChangedListener(scoreChanged.capture());
+        verify(gameTeams).setPointScoredListener(pointScored.capture());
         when(gameTeams.getTeamScore("RED")).thenReturn(3);
         when(gameTeams.getTeamScore("BLUE")).thenReturn(2);
-        scoreChanged.getValue().run();
+        pointScored.getValue().accept(new GameEvent.PointScored(first, "RED", second, "BLUE", List.of()));
         var plainText = PlainTextComponentSerializer.plainText();
         assertEquals("RED 3  |  BLUE 2  |  목표 5점  |  00:03",
                 plainText.serialize(bar.getValue().name()));
