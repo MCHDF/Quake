@@ -25,6 +25,9 @@ public final class GameTeams {
     private final Map<UUID, Scoreboard> previousScoreboards = new HashMap<>();
     private final Map<UUID, String> playerTeams = new HashMap<>();
     private final Map<String, Integer> teamScores = new HashMap<>();
+    // 처치 수는 플러그인이 직접 보관하고, 스코어보드 objective는 탭 목록 표시용으로만 쓴다.
+    private final Map<UUID, Integer> kills = new HashMap<>();
+    private Objective killsObjective;
     private Scoreboard scoreboard;
     private int targetScore = 5;
     private Runnable targetReachedListener;
@@ -49,8 +52,8 @@ public final class GameTeams {
         teamScores.put("RED", 0);
         teamScores.put("BLUE", 0);
         // The scoreboard is only set for participants, so everyone else keeps the default tab list.
-        Objective kills = scoreboard.registerNewObjective("kills", Criteria.PLAYER_KILL_COUNT, Component.text("처치"));
-        kills.setDisplaySlot(DisplaySlot.PLAYER_LIST);
+        killsObjective = scoreboard.registerNewObjective("kills", Criteria.DUMMY, Component.text("처치"));
+        killsObjective.setDisplaySlot(DisplaySlot.PLAYER_LIST);
         for (int i = 0; i < players.size(); i++) {
             Player player = players.get(i);
             Team team = i % 2 == 0 ? red : blue;
@@ -58,7 +61,8 @@ public final class GameTeams {
             previousScoreboards.put(player.getUniqueId(), player.getScoreboard());
             playerTeams.put(player.getUniqueId(), team.getName());
             player.setScoreboard(scoreboard);
-            kills.getScore(player.getName()).setScore(0);
+            kills.put(player.getUniqueId(), 0);
+            killsObjective.getScore(player.getName()).setScore(0);
             updateTabListFooter();
             player.sendMessage(Component.text(team.getName() + " 팀에 배정되었습니다.", team.color()));
         }
@@ -103,6 +107,10 @@ public final class GameTeams {
         }
         int newScore = teamScores.getOrDefault(team, 0) + 1;
         teamScores.put(team, newScore);
+        int shooterKills = kills.merge(shooter.getUniqueId(), 1, Integer::sum);
+        if (killsObjective != null) {
+            killsObjective.getScore(shooter.getName()).setScore(shooterKills);
+        }
         if (scoreChangedListener != null) {
             scoreChangedListener.run();
         }
@@ -132,6 +140,11 @@ public final class GameTeams {
         }
     }
 
+    /** 이번 게임에서 이 플레이어가 맞힌(처치한) 횟수 */
+    public int getKills(Player player) {
+        return player == null ? 0 : kills.getOrDefault(player.getUniqueId(), 0);
+    }
+
     int getTeamScore(String teamName) {
         if (teamName == null) {
             return 0;
@@ -149,17 +162,6 @@ public final class GameTeams {
         team.color(color);
         team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.FOR_OTHER_TEAMS);
         return team;
-    }
-
-    private int getTeamKillTotal(Team team) {
-        int total = 0;
-        for (String entry : team.getEntries()) {
-            Player player = Bukkit.getPlayerExact(entry);
-            if (player != null) {
-                total += player.getStatistic(org.bukkit.Statistic.PLAYER_KILLS);
-            }
-        }
-        return total;
     }
 
     public static NamedTextColor colorOf(String team) {
@@ -236,12 +238,7 @@ public final class GameTeams {
         if (scoreboard == null) {
             return false;
         }
-        for (Team team : scoreboard.getTeams()) {
-            if (team.getEntries().isEmpty()) {
-                return true;
-            }
-        }
-        return false;
+        return !playerTeams.containsValue("RED") || !playerTeams.containsValue("BLUE");
     }
 
     void clear() {
@@ -254,6 +251,8 @@ public final class GameTeams {
         previousScoreboards.clear();
         playerTeams.clear();
         teamScores.clear();
+        kills.clear();
+        killsObjective = null;
         scoreChangedListener = null;
         targetReachedListener = null;
         if (scoreboard != null) {
