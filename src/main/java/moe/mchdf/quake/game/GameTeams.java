@@ -64,7 +64,7 @@ public final class GameTeams {
         }
     }
 
-    String getTeamOf(Player player) {
+    public String getTeamOf(Player player) {
         if (player == null) {
             return null;
         }

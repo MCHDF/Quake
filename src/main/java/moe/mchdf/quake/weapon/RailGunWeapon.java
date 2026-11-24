@@ -30,6 +30,10 @@ public final class RailGunWeapon {
     }
 
     private static final BeamStyle GAME_BEAM = new BeamStyle(Material.WHITE_CONCRETE, Material.RED_STAINED_GLASS);
+    // 미니게임 중에는 쏜 사람의 팀 색으로 바깥층을 칠한다 (BLUE 팀은 하늘색)
+    private static final BeamStyle RED_TEAM_BEAM = new BeamStyle(Material.WHITE_CONCRETE, Material.RED_STAINED_GLASS);
+    private static final BeamStyle BLUE_TEAM_BEAM =
+            new BeamStyle(Material.WHITE_CONCRETE, Material.LIGHT_BLUE_STAINED_GLASS);
     private static final BeamStyle TEST_BEAM = new BeamStyle(Material.LIGHT_GRAY_CONCRETE, Material.GRAY_STAINED_GLASS);
     private static final float CORE_WIDTH = 0.06F;
     private static final float GLOW_WIDTH = 0.18F;
@@ -55,7 +59,18 @@ public final class RailGunWeapon {
 
     /** 미니게임용 레일건: 적을 맞히면 득점한다. */
     public void fire(Player shooter) {
-        fire(shooter, GAME_BEAM, true);
+        fire(shooter, teamBeam(shooter), true);
+    }
+
+    private BeamStyle teamBeam(Player shooter) {
+        String team = gameTeams.getTeamOf(shooter);
+        if ("RED".equals(team)) {
+            return RED_TEAM_BEAM;
+        }
+        if ("BLUE".equals(team)) {
+            return BLUE_TEAM_BEAM;
+        }
+        return GAME_BEAM;
     }
 
     /** 테스트용 레일건: 빔과 효과음만 나고 팀/점수는 건드리지 않는다. */
