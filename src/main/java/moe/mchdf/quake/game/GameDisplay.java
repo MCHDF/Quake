@@ -6,7 +6,9 @@ import java.util.Locale;
 import java.util.UUID;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
@@ -28,26 +30,26 @@ final class GameDisplay {
     }
 
     void waiting(int count, int minimum) {
-        bar.name(Component.text("게임 시작 최소 인원 " + count + " / " + minimum));
+        bar.name(boldExceptBars("게임 시작 최소 인원 " + count + " / " + minimum, null));
         bar.progress(Math.min(1.0f, count / (float) minimum));
         bar.color(BossBar.Color.GREEN);
     }
 
     void rotating(String worldName, int count, int minimum, int maximum, int remaining) {
-        bar.name(Component.text(worldName + " | 참여 " + count + "명 (최소 " + minimum
-                + ", 최대 " + maximum + ") | 다음 월드까지 " + remaining + "초"));
+        bar.name(boldExceptBars(worldName + " | 참여 " + count + "명 (최소 " + minimum
+                + ", 최대 " + maximum + ") | 다음 월드까지 " + remaining + "초", null));
         bar.progress(Math.min(1.0f, count / (float) minimum));
         bar.color(BossBar.Color.GREEN);
     }
 
     void noWorld() {
-        bar.name(Component.text("준비된 게임 월드를 기다리고 있습니다."));
+        bar.name(boldExceptBars("준비된 게임 월드를 기다리고 있습니다.", null));
         bar.progress(0);
         bar.color(BossBar.Color.GREEN);
     }
 
     void countdown(String worldName, int remaining, int total, Collection<UUID> participants) {
-        bar.name(Component.text(worldName + " | 게임을 시작합니다! | 시작까지 " + remaining + "초"));
+        bar.name(boldExceptBars(worldName + " | 게임을 시작합니다! | 시작까지 " + remaining + "초", null));
         bar.progress(remaining / (float) total);
         bar.color(remaining <= 10 ? BossBar.Color.RED : BossBar.Color.YELLOW);
         if (remaining <= 5) {
@@ -64,8 +66,8 @@ final class GameDisplay {
     void running(int remaining, int total, int redScore, int blueScore, int targetScore) {
         String time = String.format(Locale.ROOT, "%02d:%02d", remaining / 60, remaining % 60);
         bar.name(Component.textOfChildren(
-                teamScores(redScore, blueScore),
-                Component.text("  |  목표 " + targetScore + "점  |  " + time, NamedTextColor.WHITE)));
+                teamScores(redScore, blueScore, true),
+                boldExceptBars("  |  목표 " + targetScore + "점  |  " + time, NamedTextColor.WHITE)));
         bar.progress(remaining / (float) total);
         bar.color(leadingColor(redScore, blueScore));
     }
@@ -78,7 +80,7 @@ final class GameDisplay {
             case -1 -> Component.text("패배", NamedTextColor.RED, TextDecoration.BOLD);
             default -> Component.text("무승부", NamedTextColor.GOLD, TextDecoration.BOLD);
         };
-        Component subtitle = Component.text("최종 점수  |  ").append(teamScores(redScore, blueScore));
+        Component subtitle = Component.text("최종 점수  |  ").append(teamScores(redScore, blueScore, false));
         player.showTitle(Title.title(result, subtitle, RESULT_TIMES));
     }
 
@@ -92,10 +94,25 @@ final class GameDisplay {
     }
 
     // 각 조각을 형제로 나열해, 앞 조각의 색이 뒤 조각으로 상속되지 않도록 한다.
-    private Component teamScores(int redScore, int blueScore) {
+    private Component teamScores(int redScore, int blueScore, boolean bold) {
         return Component.textOfChildren(
-                Component.text("RED " + redScore, GameTeams.RED_COLOR),
+                Component.text("RED " + redScore, GameTeams.RED_COLOR).decoration(TextDecoration.BOLD, bold),
                 Component.text("  |  ", NamedTextColor.WHITE),
-                Component.text("BLUE " + blueScore, GameTeams.BLUE_COLOR));
+                Component.text("BLUE " + blueScore, GameTeams.BLUE_COLOR).decoration(TextDecoration.BOLD, bold));
+    }
+
+    /** 문자열을 "|" 기준으로 나눠, 구분자 "|"만 빼고 나머지 조각을 굵게 표시한다. */
+    private static Component boldExceptBars(String text, TextColor color) {
+        TextComponent.Builder builder = Component.text();
+        String[] parts = text.split("\\|", -1);
+        for (int i = 0; i < parts.length; i++) {
+            if (i > 0) {
+                builder.append(Component.text("|", color));
+            }
+            if (!parts[i].isEmpty()) {
+                builder.append(Component.text(parts[i], color, TextDecoration.BOLD));
+            }
+        }
+        return builder.build();
     }
 }
