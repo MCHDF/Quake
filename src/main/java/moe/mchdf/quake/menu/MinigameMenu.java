@@ -81,11 +81,9 @@ public final class MinigameMenu {
                 if (!player.isOnline()) {
                     return;
                 }
-                if (joining) {
-                    game.join(player);
-                } else {
-                    game.requestLeave(player);
-                }
+                player.sendMessage(joining
+                        ? GameMessages.join(game.join(player))
+                        : GameMessages.leave(game.requestLeave(player)));
             });
         }, ClickCallback.Options.builder().uses(1).build());
     }

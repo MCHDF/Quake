@@ -15,7 +15,6 @@ import moe.mchdf.quake.item.RailGunItem;
 import moe.mchdf.quake.menu.MenuBook;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -71,28 +70,25 @@ public final class GameSession {
         return !worlds.readyWorlds().isEmpty();
     }
 
-    public void join(Player player) {
+    /** 참여를 처리하고 결과를 돌려준다. 안내 메시지는 호출한 화면 쪽에서 출력한다. */
+    public JoinResult join(Player player) {
         if (!hasReadyWorlds()) {
-            player.sendMessage(Component.text("로테이션에 준비된 게임 맵이 없어 참여할 수 없습니다.", NamedTextColor.RED));
-            return;
+            return JoinResult.NO_READY_WORLD;
         }
         if (isRunning()) {
             if (contains(player)) {
-                player.sendMessage(Component.text("이미 현재 게임에 참여 중입니다.", NamedTextColor.YELLOW));
-                return;
+                return JoinResult.ALREADY_IN_GAME;
             }
-            boolean added = nextGameQueue.add(player.getUniqueId());
-            player.sendMessage(Component.text(added
-                    ? "다음 게임 대기열에 등록했습니다. 현재 게임 종료 후 자동으로 참여합니다."
-                    : "이미 다음 게임 대기열에 등록되어 있습니다.", NamedTextColor.GREEN));
-            return;
+            return nextGameQueue.add(player.getUniqueId())
+                    ? JoinResult.QUEUED_FOR_NEXT_GAME
+                    : JoinResult.ALREADY_QUEUED;
         }
-        boolean added = participants.add(player.getUniqueId());
-        if (added) {
-            updateAfterJoin();
-            display.show(player);
+        if (!participants.add(player.getUniqueId())) {
+            return JoinResult.ALREADY_WAITING;
         }
-        player.sendMessage(Component.text(added ? "미니게임 참여 대기 명단에 등록했습니다." : "이미 참여 대기 중입니다.", NamedTextColor.GREEN, TextDecoration.BOLD));
+        updateAfterJoin();
+        display.show(player);
+        return JoinResult.JOINED;
     }
 
     public void setGameDurationSeconds(int seconds) {
@@ -174,13 +170,12 @@ public final class GameSession {
         }
     }
 
-    public void requestLeave(Player player) {
+    /** 플레이어가 직접 요청한 참여 취소. 안내 메시지는 호출한 화면 쪽에서 출력한다. */
+    public LeaveResult requestLeave(Player player) {
         if (isRunning() && contains(player)) {
-            player.sendMessage(Component.text("게임 진행 중에는 참여를 취소할 수 없습니다.", NamedTextColor.RED));
-            return;
+            return LeaveResult.GAME_IN_PROGRESS;
         }
-        boolean removed = leave(player);
-        player.sendMessage(Component.text(removed ? "미니게임 참여를 취소했습니다." : "참여 대기 중이 아닙니다.", NamedTextColor.YELLOW, TextDecoration.BOLD));
+        return leave(player) ? LeaveResult.LEFT : LeaveResult.NOT_JOINED;
     }
 
     // Also used for actual disconnections, which must still remove the participant.

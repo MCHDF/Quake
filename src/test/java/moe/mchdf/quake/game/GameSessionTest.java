@@ -140,11 +140,8 @@ class GameSessionTest {
         assertEquals("arena_a", game.getCurrentWorld().name());
         ready.clear();
         Player first = player();
-        game.join(first);
+        assertEquals(JoinResult.NO_READY_WORLD, game.join(first));
         assertFalse(game.contains(first));
-        verify(first).sendMessage(net.kyori.adventure.text.Component.text(
-                "로테이션에 준비된 게임 맵이 없어 참여할 수 없습니다.",
-                net.kyori.adventure.text.format.NamedTextColor.RED));
         tickSeconds(30);
         assertNull(game.getCurrentWorld());
         Player second = player();
@@ -392,7 +389,7 @@ class GameSessionTest {
         Player first = player();
         Player second = player();
         start(first, second);
-        game.requestLeave(first);
+        assertEquals(LeaveResult.GAME_IN_PROGRESS, game.requestLeave(first));
         assertTrue(game.contains(first));
         disconnect(first);
         assertEquals(GameState.WAITING, game.getState());
@@ -404,8 +401,9 @@ class GameSessionTest {
         tickSeconds(200);
         assertTrue(game.contains(second));
         assertEquals(GameState.WAITING, game.getState());
-        game.requestLeave(second);
+        assertEquals(LeaveResult.LEFT, game.requestLeave(second));
         assertFalse(game.contains(second));
+        assertEquals(LeaveResult.NOT_JOINED, game.requestLeave(second));
     }
 
     @Test
@@ -455,10 +453,12 @@ class GameSessionTest {
         start(first, second);
         Player next = player();
         Player other = player();
-        game.join(first); // Current participants cannot queue for the next game.
+        // Current participants cannot queue for the next game.
+        assertEquals(JoinResult.ALREADY_IN_GAME, game.join(first));
         assertFalse(game.isQueued(first));
-        game.join(next);
-        game.join(next); // Duplicate requests must not duplicate promotion.
+        assertEquals(JoinResult.QUEUED_FOR_NEXT_GAME, game.join(next));
+        // Duplicate requests must not duplicate promotion.
+        assertEquals(JoinResult.ALREADY_QUEUED, game.join(next));
         game.join(other);
         assertTrue(game.isQueued(next));
         assertFalse(game.contains(next));
