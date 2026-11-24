@@ -19,8 +19,3 @@ hs_err_pid*
 
 # Common working directory
 run
-
-# Claude 세션 공유 문서 (로컬 전용)
-CLAUDE.md
-wiki/Plan.md
-wiki/Worklog.md
