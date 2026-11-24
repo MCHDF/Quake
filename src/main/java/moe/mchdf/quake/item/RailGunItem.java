@@ -4,17 +4,14 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.persistence.PersistentDataType;
 
 public final class RailGunItem {
     public static final Material MATERIAL = Material.IRON_HOE;
     public static final String DISPLAY_NAME = "RailGun";
     public static final String TEST_DISPLAY_NAME = "RailGun (테스트)";
-    private static final NamespacedKey TEST_KEY = new NamespacedKey("quake", "test_railgun");
 
     private RailGunItem() {
     }
@@ -24,6 +21,7 @@ public final class RailGunItem {
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
             meta.displayName(Component.text(DISPLAY_NAME, NamedTextColor.GOLD, TextDecoration.BOLD));
+            QuakeItems.setId(meta, QuakeItems.RAILGUN);
             item.setItemMeta(meta);
         }
         return item;
@@ -37,30 +35,18 @@ public final class RailGunItem {
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
             meta.displayName(Component.text(TEST_DISPLAY_NAME, NamedTextColor.GRAY, TextDecoration.BOLD));
-            meta.getPersistentDataContainer().set(TEST_KEY, PersistentDataType.BOOLEAN, true);
+            QuakeItems.setId(meta, QuakeItems.RAILGUN_TEST);
             item.setItemMeta(meta);
         }
         return item;
     }
 
     public static boolean isTestRailGun(ItemStack item) {
-        if (item == null || item.getType() != MATERIAL) {
-            return false;
-        }
-        ItemMeta meta = item.getItemMeta();
-        return meta != null && meta.getPersistentDataContainer().has(TEST_KEY, PersistentDataType.BOOLEAN);
+        return QuakeItems.is(item, QuakeItems.RAILGUN_TEST);
     }
 
     public static boolean isRailGun(ItemStack item) {
-        if (item == null || item.getType() != MATERIAL) {
-            return false;
-        }
-        ItemMeta meta = item.getItemMeta();
-        if (meta == null || !meta.hasDisplayName()) {
-            return false;
-        }
-        Component displayName = meta.displayName();
-        return displayName != null && displayName.equals(Component.text(DISPLAY_NAME, NamedTextColor.GOLD, TextDecoration.BOLD));
+        return QuakeItems.is(item, QuakeItems.RAILGUN);
     }
 
     public static void removeFromInventory(Player player) {

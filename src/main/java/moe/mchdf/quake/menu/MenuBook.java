@@ -1,23 +1,15 @@
 package moe.mchdf.quake.menu;
 
 import java.util.List;
+import moe.mchdf.quake.item.QuakeItems;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.plugin.java.JavaPlugin;
 
 public final class MenuBook {
-    private final NamespacedKey bookKey;
-
-    public MenuBook(JavaPlugin plugin) {
-        bookKey = new NamespacedKey(plugin, "minigame_menu_book");
-    }
-
     public void giveMenuBook(Player player) {
         giveMenuBook(player, false);
     }
@@ -40,7 +32,7 @@ public final class MenuBook {
         }
         ItemStack book = item(Material.BOOK, "미니게임 메뉴", NamedTextColor.GOLD,
                 "우클릭하여 미니게임 참여 메뉴를 엽니다.");
-        book.editMeta(meta -> meta.getPersistentDataContainer().set(bookKey, PersistentDataType.BYTE, (byte) 1));
+        book.editMeta(meta -> QuakeItems.setId(meta, QuakeItems.MENU_BOOK));
         player.getInventory().setItem(slot, book);
         if (notify) {
             player.sendMessage(Component.text("미니게임 메뉴 책을 지급했습니다.", NamedTextColor.GREEN));
@@ -60,8 +52,7 @@ public final class MenuBook {
     }
 
     public boolean isMenuBook(ItemStack item) {
-        return item != null && item.getType() == Material.BOOK
-                && item.getPersistentDataContainer().has(bookKey, PersistentDataType.BYTE);
+        return QuakeItems.is(item, QuakeItems.MENU_BOOK);
     }
 
     private static ItemStack item(Material material, String name, NamedTextColor color, String description) {

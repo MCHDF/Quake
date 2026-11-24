@@ -34,7 +34,7 @@ public final class Quake extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new GameWorldListener(gameWorld), this);
         gameWorld.loadAll();
         LobbyWorldManager lobby = gameWorld.lobby();
-        MenuBook book = new MenuBook(this);
+        MenuBook book = new MenuBook();
         LobbyArrival lobbyArrival = new LobbyArrival(lobby, book);
         game = new GameSession(this, book, gameWorld, lobbyArrival);
         game.addListener(new GameChatNotifier());
