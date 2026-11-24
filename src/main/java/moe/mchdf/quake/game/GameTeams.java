@@ -18,6 +18,10 @@ import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
 public final class GameTeams {
+    /** 팀 표시 색. 이름표, 채팅, 탭 목록, 보스바 글자 등 팀 색이 쓰이는 모든 곳의 기준. */
+    public static final NamedTextColor RED_COLOR = NamedTextColor.RED;
+    public static final NamedTextColor BLUE_COLOR = NamedTextColor.AQUA;
+
     private final Map<UUID, Scoreboard> previousScoreboards = new HashMap<>();
     private final Map<UUID, String> playerTeams = new HashMap<>();
     private final Map<String, Integer> teamScores = new HashMap<>();
@@ -40,8 +44,8 @@ public final class GameTeams {
         }
         Collections.shuffle(players);
         scoreboard = Bukkit.getScoreboardManager().getNewScoreboard();
-        Team red = createTeam("RED", NamedTextColor.RED);
-        Team blue = createTeam("BLUE", NamedTextColor.BLUE);
+        Team red = createTeam("RED", RED_COLOR);
+        Team blue = createTeam("BLUE", BLUE_COLOR);
         teamScores.put("RED", 0);
         teamScores.put("BLUE", 0);
         // The scoreboard is only set for participants, so everyone else keeps the default tab list.
@@ -104,8 +108,8 @@ public final class GameTeams {
         }
         updateTabListFooter();
 
-        NamedTextColor shooterColor = team.equals("RED") ? NamedTextColor.RED : NamedTextColor.BLUE;
-        NamedTextColor targetColor = targetTeam.equals("RED") ? NamedTextColor.RED : NamedTextColor.BLUE;
+        NamedTextColor shooterColor = colorOf(team);
+        NamedTextColor targetColor = colorOf(targetTeam);
         Component message = Component.text("[", NamedTextColor.GRAY)
                 .append(Component.text(team, shooterColor, TextDecoration.BOLD))
                 .append(Component.text("] ", NamedTextColor.GRAY))
@@ -158,6 +162,10 @@ public final class GameTeams {
         return total;
     }
 
+    public static NamedTextColor colorOf(String team) {
+        return "RED".equals(team) ? RED_COLOR : BLUE_COLOR;
+    }
+
     void updateTabListFooter() {
         if (scoreboard == null) {
             return;
@@ -179,9 +187,9 @@ public final class GameTeams {
 
         Component header = Component.text("QUAKE", NamedTextColor.GOLD, TextDecoration.BOLD)
                 .appendNewline()
-                .append(Component.text("RED", NamedTextColor.RED))
+                .append(Component.text("RED", RED_COLOR))
                 .append(Component.text(" vs ", NamedTextColor.GRAY))
-                .append(Component.text("BLUE", NamedTextColor.BLUE))
+                .append(Component.text("BLUE", BLUE_COLOR))
                 .appendNewline();
 
         for (String entry : scoreboard.getEntries()) {
@@ -193,10 +201,10 @@ public final class GameTeams {
             if (playerTeam == null) {
                 continue;
             }
-            Component footer = Component.text("RED ", NamedTextColor.RED)
+            Component footer = Component.text("RED ", RED_COLOR)
                     .append(Component.text(String.valueOf(redTotal), NamedTextColor.WHITE))
                     .append(Component.text(" | ", NamedTextColor.GRAY))
-                    .append(Component.text("BLUE ", NamedTextColor.BLUE))
+                    .append(Component.text("BLUE ", BLUE_COLOR))
                     .append(Component.text(String.valueOf(blueTotal), NamedTextColor.WHITE))
                     .appendNewline()
                     .appendNewline()

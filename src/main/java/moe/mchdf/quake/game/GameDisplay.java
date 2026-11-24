@@ -63,10 +63,11 @@ final class GameDisplay {
 
     void running(int remaining, int total, int redScore, int blueScore, int targetScore) {
         String time = String.format(Locale.ROOT, "%02d:%02d", remaining / 60, remaining % 60);
-        bar.name(teamScores(redScore, blueScore)
-                .append(Component.text("  |  목표 " + targetScore + "점  |  " + time)));
+        bar.name(Component.textOfChildren(
+                teamScores(redScore, blueScore),
+                Component.text("  |  목표 " + targetScore + "점  |  " + time, NamedTextColor.WHITE)));
         bar.progress(remaining / (float) total);
-        bar.color(BossBar.Color.BLUE);
+        bar.color(leadingColor(redScore, blueScore));
     }
 
     void showResult(Player player, String team, int redScore, int blueScore) {
@@ -81,9 +82,20 @@ final class GameDisplay {
         player.showTitle(Title.title(result, subtitle, RESULT_TIMES));
     }
 
+    /** 앞서는 팀의 색으로 보스바를 칠하고, 동점이면 중립색(흰색)으로 둔다. */
+    private static BossBar.Color leadingColor(int redScore, int blueScore) {
+        return switch (Integer.compare(redScore, blueScore)) {
+            case 1 -> BossBar.Color.RED;
+            case -1 -> BossBar.Color.BLUE; // 보스바 막대에는 하늘색이 없어 가장 가까운 파랑 사용
+            default -> BossBar.Color.WHITE;
+        };
+    }
+
+    // 각 조각을 형제로 나열해, 앞 조각의 색이 뒤 조각으로 상속되지 않도록 한다.
     private Component teamScores(int redScore, int blueScore) {
-        return Component.text("RED " + redScore, NamedTextColor.RED)
-                .append(Component.text("  |  ", NamedTextColor.WHITE))
-                .append(Component.text("BLUE " + blueScore, NamedTextColor.BLUE));
+        return Component.textOfChildren(
+                Component.text("RED " + redScore, GameTeams.RED_COLOR),
+                Component.text("  |  ", NamedTextColor.WHITE),
+                Component.text("BLUE " + blueScore, GameTeams.BLUE_COLOR));
     }
 }
