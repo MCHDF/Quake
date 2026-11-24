@@ -66,6 +66,27 @@ public final class GameSession {
         return nextGameQueue.contains(player.getUniqueId());
     }
 
+    /** 진행 중인 게임의 참가자인지 */
+    public boolean isPlaying(Player player) {
+        return isRunning() && contains(player);
+    }
+
+    /** 이 플레이어 기준의 상태 스냅샷. 참여 메뉴와 모드 화면이 같은 데이터를 쓰도록 한다. */
+    public LobbyStatus lobbyStatus(Player player) {
+        LobbyStatus.Participation participation;
+        if (contains(player)) {
+            participation = isRunning() ? LobbyStatus.Participation.PLAYING : LobbyStatus.Participation.WAITING;
+        } else if (isQueued(player)) {
+            participation = LobbyStatus.Participation.QUEUED;
+        } else {
+            participation = LobbyStatus.Participation.NONE;
+        }
+        LobbyStatus.WorldSummary world = currentWorld == null ? null
+                : new LobbyStatus.WorldSummary(currentWorld.displayName(),
+                        currentWorld.minPlayers(), currentWorld.maxPlayers());
+        return new LobbyStatus(state, participation, hasReadyWorlds(), world, participants.size());
+    }
+
     public boolean hasReadyWorlds() {
         return !worlds.readyWorlds().isEmpty();
     }
@@ -172,7 +193,7 @@ public final class GameSession {
 
     /** 플레이어가 직접 요청한 참여 취소. 안내 메시지는 호출한 화면 쪽에서 출력한다. */
     public LeaveResult requestLeave(Player player) {
-        if (isRunning() && contains(player)) {
+        if (isPlaying(player)) {
             return LeaveResult.GAME_IN_PROGRESS;
         }
         return leave(player) ? LeaveResult.LEFT : LeaveResult.NOT_JOINED;

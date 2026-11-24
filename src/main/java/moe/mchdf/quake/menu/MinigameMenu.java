@@ -9,6 +9,7 @@ import io.papermc.paper.registry.data.dialog.type.DialogType;
 import java.util.List;
 import java.util.UUID;
 import moe.mchdf.quake.game.GameSession;
+import moe.mchdf.quake.game.LobbyStatus;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickCallback;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -27,23 +28,24 @@ public final class MinigameMenu {
     }
 
     public void open(Player player) {
-        if (game.isRunning() && game.contains(player)) {
+        LobbyStatus status = game.lobbyStatus(player);
+        if (status.participation() == LobbyStatus.Participation.PLAYING) {
             player.sendMessage(Component.text("게임 진행 중에는 참여 메뉴를 사용할 수 없습니다.", NamedTextColor.YELLOW));
             return;
         }
         UUID playerId = player.getUniqueId();
-        boolean waiting = game.contains(player);
-        boolean queued = game.isQueued(player);
-        boolean running = game.isRunning();
-        boolean hasReadyWorlds = game.hasReadyWorlds();
+        boolean waiting = status.participation() == LobbyStatus.Participation.WAITING;
+        boolean queued = status.participation() == LobbyStatus.Participation.QUEUED;
+        boolean running = status.isRunning();
+        boolean hasReadyWorlds = status.hasReadyWorlds();
         String description = running
                 ? (queued ? "다음 게임 대기 중입니다. 현재 게임 종료 후 자동으로 참여합니다."
                           : "게임이 진행 중입니다. 다음 게임 대기열에 등록할 수 있습니다.")
                 : (waiting ? "현재 참여 대기 중입니다." : "참여 버튼을 눌러 미니게임 대기 명단에 등록하세요.");
-        var currentWorld = game.getCurrentWorld();
-        String worldDescription = currentWorld == null ? "준비된 월드가 없습니다."
-                : "현재 월드: " + currentWorld.displayName() + " (최소 " + currentWorld.minPlayers()
-                        + "명 / 최대 " + currentWorld.maxPlayers() + "명)";
+        LobbyStatus.WorldSummary world = status.world();
+        String worldDescription = world == null ? "준비된 월드가 없습니다."
+                : "현재 월드: " + world.displayName() + " (최소 " + world.minPlayers()
+                        + "명 / 최대 " + world.maxPlayers() + "명)";
         String joinLabel = running ? (queued ? "다음 게임 대기 중" : "다음 게임 참여")
                 : (waiting ? "참여 대기 중" : "참여하기");
         Component menuDescription = hasReadyWorlds

@@ -114,7 +114,7 @@ public final class QuakeCommand implements TabExecutor {
             sendHelp(player);
             return true;
         }
-        if (game.isRunning() && game.contains(player)) {
+        if (game.isPlaying(player)) {
             player.sendMessage(Component.text("게임 참여 중에는 메뉴 책을 받을 수 없습니다.", NamedTextColor.RED));
             return true;
         }
@@ -123,7 +123,7 @@ public final class QuakeCommand implements TabExecutor {
     }
 
     private void giveTestRailGun(Player player) {
-        if (game.isRunning() && game.contains(player)) {
+        if (game.isPlaying(player)) {
             player.sendMessage(Component.text("게임 참여 중에는 테스트 레일건을 받을 수 없습니다.", NamedTextColor.RED));
             return;
         }
@@ -259,7 +259,7 @@ public final class QuakeCommand implements TabExecutor {
 
         int failed = 0;
         for (Player previousPlayer : previousPlayers) {
-            if (game.isRunning() && game.contains(previousPlayer)) {
+            if (game.isPlaying(previousPlayer)) {
                 continue;
             }
             if (!previousPlayer.teleport(location)) {

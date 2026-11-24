@@ -119,6 +119,32 @@ class GameSessionTest {
     }
 
     @Test
+    void lobbyStatusReflectsEachPlayersParticipation() {
+        Player first = player();
+        Player second = player();
+        Player outsider = player();
+        LobbyStatus idle = game.lobbyStatus(first);
+        assertEquals(LobbyStatus.Participation.NONE, idle.participation());
+        assertEquals(GameState.WAITING, idle.state());
+        assertTrue(idle.hasReadyWorlds());
+        assertEquals(new LobbyStatus.WorldSummary("arena_a", 2, 16), idle.world());
+        assertEquals(0, idle.participantCount());
+
+        game.join(first);
+        assertEquals(LobbyStatus.Participation.WAITING, game.lobbyStatus(first).participation());
+        assertEquals(1, game.lobbyStatus(outsider).participantCount());
+
+        start(first, second);
+        assertEquals(LobbyStatus.Participation.PLAYING, game.lobbyStatus(first).participation());
+        assertTrue(game.isPlaying(first));
+        game.join(outsider);
+        LobbyStatus queued = game.lobbyStatus(outsider);
+        assertEquals(LobbyStatus.Participation.QUEUED, queued.participation());
+        assertTrue(queued.isRunning());
+        assertFalse(game.isPlaying(outsider));
+    }
+
+    @Test
     void reachingMinimumStartsCountdownWithoutWaitingForRotationDeadline() {
         tickSeconds(7);
         game.join(player());
