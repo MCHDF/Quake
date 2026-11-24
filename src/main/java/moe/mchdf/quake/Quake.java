@@ -43,7 +43,7 @@ public final class Quake extends JavaPlugin {
         QuakeCommand executor = new QuakeCommand(this, book, game, gameWorld, worldDeleteMenu, worldTeleportMenu);
         command.setExecutor(executor);
         command.setTabCompleter(executor);
-        RailGunWeapon railGunWeapon = new RailGunWeapon(game.getGameTeams());
+        RailGunWeapon railGunWeapon = new RailGunWeapon(this, game.getGameTeams());
         getServer().getPluginManager().registerEvents(new PlayerListener(book, menu, game, lobbyArrival), this);
         getServer().getPluginManager().registerEvents(worldDeleteMenu, this);
         getServer().getPluginManager().registerEvents(worldTeleportMenu, this);

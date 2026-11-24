@@ -11,6 +11,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import moe.mchdf.quake.game.GameSession;
+import moe.mchdf.quake.item.RailGunItem;
 import moe.mchdf.quake.menu.MenuBook;
 import moe.mchdf.quake.menu.WorldDeleteMenu;
 import moe.mchdf.quake.menu.WorldTeleportMenu;
@@ -105,6 +106,10 @@ public final class QuakeCommand implements TabExecutor {
         if (args.length >= 2 && args[0].equalsIgnoreCase("world") && executeWorldCommand(player, command, args)) {
             return true;
         }
+        if (args.length == 2 && args[0].equalsIgnoreCase("get") && args[1].equalsIgnoreCase("railgun")) {
+            giveTestRailGun(player);
+            return true;
+        }
         if (args.length != 2 || !args[0].equalsIgnoreCase("get") || !args[1].equalsIgnoreCase("book")) {
             sendHelp(player);
             return true;
@@ -117,12 +122,23 @@ public final class QuakeCommand implements TabExecutor {
         return true;
     }
 
+    private void giveTestRailGun(Player player) {
+        if (game.isRunning() && game.contains(player)) {
+            player.sendMessage(Component.text("게임 참여 중에는 테스트 레일건을 받을 수 없습니다.", NamedTextColor.RED));
+            return;
+        }
+        player.getInventory().addItem(RailGunItem.createTest()).values()
+                .forEach(leftover -> player.getWorld().dropItem(player.getLocation(), leftover));
+        player.sendMessage(Component.text("테스트 레일건을 지급했습니다. 점수에는 영향을 주지 않습니다.", NamedTextColor.GREEN));
+    }
+
     private void sendHelp(Player player) {
         player.sendMessage(Component.text("Quake 명령어", NamedTextColor.GOLD, TextDecoration.BOLD)
                 .append(Component.text("  ·  클릭하여 채팅 입력창에 넣기", NamedTextColor.GRAY)
                         .decoration(TextDecoration.BOLD, false)));
         player.sendMessage(Component.text("미니게임", NamedTextColor.YELLOW));
         sendHelpEntry(player, "/quake get book", "", "참여 메뉴 책 받기");
+        sendHelpEntry(player, "/quake get railgun", "", "테스트 레일건 받기 (점수 미반영)");
         sendHelpEntry(player, "/quake setTimer", " <초>", "경기 시간 설정 (1~" + MAX_TIMER_SECONDS + "초)");
         sendHelpEntry(player, "/quake setScore", " <점수>", "목표 점수 설정");
 
@@ -418,9 +434,10 @@ public final class QuakeCommand implements TabExecutor {
         if (args.length == 2 && args[0].equalsIgnoreCase("setScore")) {
             return List.of("5").stream().filter(option -> option.startsWith(args[1])).toList();
         }
-        if (args.length == 2 && args[0].equalsIgnoreCase("get")
-                && "book".startsWith(args[1].toLowerCase(Locale.ROOT))) {
-            return List.of("book");
+        if (args.length == 2 && args[0].equalsIgnoreCase("get")) {
+            return List.of("book", "railgun").stream()
+                    .filter(option -> option.startsWith(args[1].toLowerCase(Locale.ROOT)))
+                    .toList();
         }
         if (args.length >= 2 && args[0].equalsIgnoreCase("world")) {
             return completeWorldCommand(player, args);

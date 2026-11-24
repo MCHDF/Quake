@@ -16,20 +16,27 @@ public final class RailGunListener implements Listener {
 
     @EventHandler
     public void onBlockDamage(BlockDamageEvent event) {
-        if (RailGunItem.isRailGun(event.getItemInHand())) {
+        if (RailGunItem.isRailGun(event.getItemInHand()) || RailGunItem.isTestRailGun(event.getItemInHand())) {
             event.setCancelled(true);
         }
     }
 
     @EventHandler
     public void onInteract(PlayerInteractEvent event) {
-        if (!RailGunItem.isRailGun(event.getItem())) {
+        boolean railGun = RailGunItem.isRailGun(event.getItem());
+        boolean testRailGun = !railGun && RailGunItem.isTestRailGun(event.getItem());
+        if (!railGun && !testRailGun) {
             return;
         }
 
         event.setCancelled(true);
-        if (event.getAction() == Action.RIGHT_CLICK_AIR || event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+        if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
+        if (railGun) {
             weapon.fire(event.getPlayer());
+        } else {
+            weapon.fireTest(event.getPlayer());
         }
     }
 }
