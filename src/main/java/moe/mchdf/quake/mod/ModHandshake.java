@@ -74,18 +74,20 @@ public final class ModHandshake implements PluginMessageListener, Listener {
             return;
         }
         boolean accepted = clientVersion == ModProtocol.VERSION;
+        boolean firstAccept = false;
         if (accepted) {
-            boolean firstAccept = modPlayers.add(player.getUniqueId());
+            firstAccept = modPlayers.add(player.getUniqueId());
             plugin.getLogger().info(player.getName() + "이(가) Quake 모드로 접속했습니다. (프로토콜 " + clientVersion + ")");
-            if (firstAccept) {
-                acceptListeners.forEach(listener -> listener.accept(player));
-            }
         } else {
             modPlayers.remove(player.getUniqueId());
             plugin.getLogger().info(player.getName() + "의 Quake 모드 버전이 맞지 않습니다. (모드 "
                     + clientVersion + ", 서버 " + ModProtocol.VERSION + ")");
         }
         sendReply(player, encodeReply(accepted));
+        // 수락 응답을 먼저 보내고, 사이드바 등 모드 화면 패킷은 그 뒤에 보낸다.
+        if (firstAccept) {
+            acceptListeners.forEach(listener -> listener.accept(player));
+        }
     }
 
     private void sendReply(Player player, byte[] reply) {

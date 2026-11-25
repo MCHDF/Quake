@@ -12,6 +12,7 @@ import moe.mchdf.quake.game.GameSession;
 import moe.mchdf.quake.game.GameState;
 import moe.mchdf.quake.game.GameTeams;
 import moe.mchdf.quake.game.LobbyStatus;
+import moe.mchdf.quake.mod.ModSidebar;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -31,6 +32,7 @@ class ServerSidebarTest {
     private Player player;
     private Scoreboard board;
     private Objective objective;
+    private ModSidebar modSidebar;
     private ServerSidebar sidebar;
 
     @BeforeEach
@@ -60,7 +62,11 @@ class ServerSidebarTest {
         when(game.lobbyStatus(player)).thenReturn(
                 new LobbyStatus(GameState.WAITING, LobbyStatus.Participation.NONE, false, null, 0));
 
-        sidebar = new ServerSidebar(game, boards, p -> modUsers.contains(p.getUniqueId()), new YamlConfiguration());
+        modSidebar = mock(ModSidebar.class);
+        when(modSidebar.usesModUi(any(Player.class))).thenAnswer(invocation ->
+                modUsers.contains(((Player) invocation.getArgument(0)).getUniqueId()));
+
+        sidebar = new ServerSidebar(game, boards, modSidebar, new YamlConfiguration());
     }
 
     @AfterEach
@@ -73,15 +79,19 @@ class ServerSidebarTest {
         sidebar.refreshAll();
 
         verify(board).registerNewObjective(eq(Sidebar.OBJECTIVE_NAME), nullable(Criteria.class), any(Component.class));
+        verify(modSidebar, never()).show(any(), any(), anyList());
     }
 
     @Test
-    void modUserNeverGetsSidebar() {
+    void modUserGetsSameContentThroughModInsteadOfVanillaSidebar() {
         modUsers.add(player.getUniqueId());
 
         sidebar.refreshAll();
 
         verify(board, never()).registerNewObjective(anyString(), nullable(Criteria.class), any(Component.class));
+        List<Component> expected = SidebarLines.lobby(1,
+                new LobbyStatus(GameState.WAITING, LobbyStatus.Participation.NONE, false, null, 0), null);
+        verify(modSidebar).show(eq(player), any(Component.class), eq(expected));
     }
 
     @Test
@@ -92,6 +102,7 @@ class ServerSidebarTest {
         sidebar.onModAccepted(player);
 
         verify(objective).unregister();
+        verify(modSidebar).show(eq(player), any(Component.class), anyList());
         // 이후 1초 갱신에서도 다시 만들지 않는다.
         sidebar.refreshAll();
         verify(board, times(1)).registerNewObjective(anyString(), nullable(Criteria.class), any(Component.class));
