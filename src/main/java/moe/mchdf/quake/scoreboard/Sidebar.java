@@ -11,14 +11,16 @@ import org.bukkit.scoreboard.Score;
 import org.bukkit.scoreboard.Scoreboard;
 
 /**
- * 스코어보드 하나의 사이드바. 줄마다 고정 항목({@code #sidebar0}, {@code #sidebar1} …)을 두고,
+ * 스코어보드 하나의 사이드바. 줄마다 고정 항목({@code quake.sidebar.0}, {@code quake.sidebar.1} …)을 두고,
  * 화면에는 항목 이름 대신 {@link Score#customName}을 보여 준다. 오른쪽 숫자는 숨긴다.
  *
  * <p>바뀐 줄만 다시 보내서 매초 갱신해도 패킷이 거의 나가지 않는다.
  */
 final class Sidebar {
     static final String OBJECTIVE_NAME = "quake_sidebar";
-    private static final String ENTRY_PREFIX = "#sidebar";
+    // '#'으로 시작하는 항목은 바닐라 클라이언트가 사이드바에서 숨기므로 쓰면 안 된다.
+    // '.'은 플레이어 이름에 쓸 수 없어 실제 플레이어 이름과 겹치지 않는다.
+    static final String ENTRY_PREFIX = "quake.sidebar.";
 
     private final Scoreboard board;
     private final List<Component> shown = new ArrayList<>();
@@ -57,7 +59,7 @@ final class Sidebar {
             }
             Score score = objective.getScore(entry(i));
             score.setScore(lines.size() - i);
-            // 빈 이름이면 클라이언트가 항목 이름(#sidebar0)을 보여 줄 수 있어 공백 한 칸으로 보낸다.
+            // 빈 이름이면 클라이언트가 항목 이름(quake.sidebar.0)을 보여 줄 수 있어 공백 한 칸으로 보낸다.
             score.customName(line.equals(Component.empty()) ? Component.space() : line);
         }
         shown.clear();

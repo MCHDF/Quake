@@ -66,9 +66,15 @@ class SidebarTest {
         verify(objective).setDisplaySlot(DisplaySlot.SIDEBAR);
         verify(objective).numberFormat(NumberFormat.blank());
         // 위쪽 줄일수록 점수가 커야 사이드바에서 위에 표시된다.
-        verify(scores.get("#sidebar0")).setScore(2);
-        verify(scores.get("#sidebar1")).setScore(1);
-        verify(scores.get("#sidebar0")).customName(Component.text("a"));
+        verify(scores.get("quake.sidebar.0")).setScore(2);
+        verify(scores.get("quake.sidebar.1")).setScore(1);
+        verify(scores.get("quake.sidebar.0")).customName(Component.text("a"));
+    }
+
+    @Test
+    void entryNamesAreNotHiddenByClient() {
+        // 바닐라 클라이언트는 '#'으로 시작하는 항목을 사이드바에 표시하지 않는다.
+        assertFalse(Sidebar.ENTRY_PREFIX.startsWith("#"));
     }
 
     @Test
@@ -76,7 +82,7 @@ class SidebarTest {
         Sidebar sidebar = new Sidebar(board);
         sidebar.update(Component.text("QUAKE"), List.of(Component.empty()));
 
-        verify(scores.get("#sidebar0")).customName(Component.space());
+        verify(scores.get("quake.sidebar.0")).customName(Component.space());
     }
 
     @Test
@@ -87,8 +93,8 @@ class SidebarTest {
 
         sidebar.update(Component.text("QUAKE"), List.of(Component.text("a"), Component.text("c")));
 
-        verifyNoInteractions(scores.get("#sidebar0"));
-        verify(scores.get("#sidebar1")).customName(Component.text("c"));
+        verifyNoInteractions(scores.get("quake.sidebar.0"));
+        verify(scores.get("quake.sidebar.1")).customName(Component.text("c"));
         verify(objective, never()).displayName(any());
     }
 
@@ -100,9 +106,9 @@ class SidebarTest {
 
         sidebar.update(Component.text("QUAKE"), List.of(Component.text("a")));
 
-        verify(board).resetScores("#sidebar2");
-        verify(board).resetScores("#sidebar1");
-        verify(scores.get("#sidebar0")).setScore(1);
+        verify(board).resetScores("quake.sidebar.2");
+        verify(board).resetScores("quake.sidebar.1");
+        verify(scores.get("quake.sidebar.0")).setScore(1);
     }
 
     @Test
