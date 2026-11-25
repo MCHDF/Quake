@@ -11,6 +11,7 @@ import moe.mchdf.quake.menu.MenuBook;
 import moe.mchdf.quake.menu.MinigameMenu;
 import moe.mchdf.quake.menu.WorldDeleteMenu;
 import moe.mchdf.quake.menu.WorldTeleportMenu;
+import moe.mchdf.quake.mod.ModHandshake;
 import moe.mchdf.quake.world.GameWorld;
 import moe.mchdf.quake.world.GameWorldListener;
 import moe.mchdf.quake.world.LobbyArrival;
@@ -26,6 +27,7 @@ public final class Quake extends JavaPlugin {
     private GameSession game;
     private GameWorld gameWorld;
     private DatabaseManager database;
+    private ModHandshake modHandshake;
 
     @Override
     public void onEnable() {
@@ -51,6 +53,8 @@ public final class Quake extends JavaPlugin {
         getServer().getPluginManager().registerEvents(worldTeleportMenu, this);
         getServer().getPluginManager().registerEvents(game.getDoubleJump(), this);
         getServer().getPluginManager().registerEvents(new RailGunListener(railGunWeapon), this);
+        modHandshake = new ModHandshake(this);
+        modHandshake.register();
         getServer().getOnlinePlayers().forEach(book::giveMenuBook);
         // Plugin startup logic
         getComponentLogger().info(
@@ -82,6 +86,13 @@ public final class Quake extends JavaPlugin {
             throw new IllegalStateException("Game world has not been loaded yet.");
         }
         return gameWorld;
+    }
+
+    public ModHandshake getModHandshake() {
+        if (modHandshake == null) {
+            throw new IllegalStateException("Mod handshake has not been initialized yet.");
+        }
+        return modHandshake;
     }
 
     public DatabaseManager getDatabase() {

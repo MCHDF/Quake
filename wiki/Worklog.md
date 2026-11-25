@@ -2,6 +2,16 @@
 
 새 기록은 맨 위에 추가합니다. 형식: `## 날짜 · 세션` 다음에 한 일, 바뀐 결정, 다음 할 일.
 
+## 2026-11-25 · 코드 세션
+
+- 모드 로더를 Fabric으로 정했습니다. 모드 저장소는 `quake-mod`(github.com/MCHDF/quake-mod)이고 이 저장소와 같은 상위 폴더에 있습니다.
+- 모드 템플릿 정리: 패키지를 `moe.mchdf` → `moe.mchdf.quake`로 옮기고 예제 Mixin을 지웠습니다.
+- 핸드셰이크 구현 (채널 `quake:handshake`, 프로토콜 버전 1)
+  - 플러그인: `mod/ModHandshake`가 모드 버전을 받아 응답하고, 버전이 맞는 플레이어를 기록합니다(`Quake.getModHandshake().hasMod(player)`). 테스트 `ModHandshakeTest`.
+  - 모드: `client/QuakeServerConnection`이 서버가 채널을 등록했을 때만 핸드셰이크를 보내고, 수락 응답을 받으면 활성화, 접속이 끊기면 비활성화합니다. 모드 기능은 `QuakeServerConnection.isActive()`로 확인합니다.
+  - 버전이 다르면 서버가 거절 응답을 보내고 모드는 채팅으로 안내한 뒤 꺼진 상태로 남습니다.
+- 다음 할 일: 실제 클라이언트로 접속 확인, 첫 모드 화면 (통신 구조 검증용)
+
 ## 2026-11-24 · 코드 세션 (4)
 
 - `CLAUDE.md`, `wiki/Plan.md`, `wiki/Worklog.md`를 `.gitignore`에서 빼고 저장소에 포함했습니다. 다른 컴퓨터에서 작업할 때도 같은 계획과 기록을 보기 위해서입니다.
