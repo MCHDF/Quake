@@ -12,6 +12,7 @@
   - 버전이 다르면 서버가 거절 응답을 보내고 모드는 채팅으로 안내한 뒤 꺼진 상태로 남습니다.
 - 모드에 활성화 확인용 테스트 GUI 추가: Ctrl+F (`client/QuakeTestKey`, `client/screen/QuakeTestScreen`). 활성 상태면 화면을 열고, 비활성이면 액션바에 안내만 띄웁니다. 실제 GUI를 만들면 지웁니다.
 - 모드 빌드에 shadow 적용: `./gradlew build`가 `quake-<버전>-all.jar`를 만들고 `local.properties`의 `modsDir`(저장소에 올리지 않음)로 복사합니다. jar에 넣을 외부 라이브러리는 `shade` 설정에 추가합니다.
+- 핸드셰이크 응답이 클라에 도착하지 않던 문제 수정: Fabric `JOIN` 이벤트는 클라가 `minecraft:register`를 보내기 전에 호출되어, 서버가 채널 미등록 상태에서 보낸 응답을 Paper가 버렸습니다. 모드는 핸드셰이크를 등록 패킷 뒤로 미루고, 플러그인은 채널 등록 전이면 응답을 보관했다가 `PlayerRegisterChannelEvent`에서 보냅니다.
 - 다음 할 일: 실제 클라이언트로 접속 확인, 첫 모드 화면 (통신 구조 검증용)
 
 ## 2026-11-24 · 코드 세션 (4)
