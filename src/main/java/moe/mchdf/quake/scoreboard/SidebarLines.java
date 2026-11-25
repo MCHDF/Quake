@@ -9,8 +9,15 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 
-/** 사이드바에 표시할 줄을 만든다. 화면 갱신 없이 문구만 정하므로 서버 없이 테스트할 수 있다. */
+/**
+ * 사이드바에 표시할 줄을 만든다. 화면 갱신 없이 문구만 정하므로 서버 없이 테스트할 수 있다.
+ *
+ * <p>사이드바 배경이 어두워 회색 글씨는 잘 보이지 않으므로 쓰지 않는다. 항목 이름은 흰색, 값은 노란색이다.
+ */
 final class SidebarLines {
+    private static final NamedTextColor LABEL = NamedTextColor.WHITE;
+    private static final NamedTextColor VALUE = NamedTextColor.YELLOW;
+
     private SidebarLines() {
     }
 
@@ -18,17 +25,17 @@ final class SidebarLines {
     static List<Component> lobby(int onlinePlayers, LobbyStatus status, Component address) {
         List<Component> lines = new ArrayList<>();
         lines.add(Component.empty());
-        lines.add(labeled("접속 인원", Component.text(onlinePlayers + "명", NamedTextColor.WHITE)));
+        lines.add(labeled("접속 인원", Component.text(onlinePlayers + "명", VALUE)));
         lines.add(Component.empty());
         if (status.world() == null) {
             lines.add(labeled("맵", Component.text("준비된 맵 없음", NamedTextColor.RED)));
         } else if (status.isRunning()) {
-            lines.add(labeled("진행 중", Component.text(status.world().displayName(), NamedTextColor.WHITE)));
-            lines.add(labeled("게임 인원", Component.text(status.participantCount() + "명", NamedTextColor.WHITE)));
+            lines.add(labeled("진행 중", Component.text(status.world().displayName(), VALUE)));
+            lines.add(labeled("게임 인원", Component.text(status.participantCount() + "명", VALUE)));
         } else {
-            lines.add(labeled("다음 맵", Component.text(status.world().displayName(), NamedTextColor.WHITE)));
-            lines.add(labeled("참여 인원", Component.text(status.participantCount() + "명", NamedTextColor.WHITE)
-                    .append(Component.text(" (최소 " + status.world().minPlayers() + ")", NamedTextColor.GRAY))));
+            lines.add(labeled("다음 맵", Component.text(status.world().displayName(), VALUE)));
+            lines.add(labeled("참여 인원", Component.text(status.participantCount() + "명", VALUE)
+                    .append(Component.text(" (최소 " + status.world().minPlayers() + ")", LABEL))));
         }
         lines.add(labeled("내 상태", participation(status.participation())));
         addFooter(lines, address);
@@ -44,9 +51,9 @@ final class SidebarLines {
         lines.add(Component.empty());
         lines.add(teamScore("RED", redScore));
         lines.add(teamScore("BLUE", blueScore));
-        lines.add(labeled("목표", Component.text(targetScore + "점", NamedTextColor.WHITE)));
+        lines.add(labeled("목표", Component.text(targetScore + "점", VALUE)));
         lines.add(Component.empty());
-        lines.add(labeled("남은 시간", Component.text(time(remainingSeconds), NamedTextColor.WHITE)));
+        lines.add(labeled("남은 시간", Component.text(time(remainingSeconds), VALUE)));
         addFooter(lines, address);
         return lines;
     }
@@ -58,7 +65,7 @@ final class SidebarLines {
 
     private static Component participation(LobbyStatus.Participation participation) {
         return switch (participation) {
-            case NONE -> Component.text("미참여", NamedTextColor.GRAY);
+            case NONE -> Component.text("미참여", LABEL);
             case WAITING -> Component.text("참여 대기", NamedTextColor.GREEN);
             case QUEUED -> Component.text("다음 게임 대기", NamedTextColor.YELLOW);
             case PLAYING -> Component.text("게임 중", NamedTextColor.GOLD);
@@ -67,11 +74,11 @@ final class SidebarLines {
 
     private static Component teamScore(String team, int score) {
         TextColor color = GameTeams.colorOf(team);
-        return Component.text(team + " ", color).append(Component.text(score + "점", NamedTextColor.WHITE));
+        return Component.text(team + " ", color).append(Component.text(score + "점", VALUE));
     }
 
     private static Component labeled(String label, Component value) {
-        return Component.text(label + ": ", NamedTextColor.GRAY).append(value);
+        return Component.text(label + ": ", LABEL).append(value);
     }
 
     private static void addFooter(List<Component> lines, Component address) {

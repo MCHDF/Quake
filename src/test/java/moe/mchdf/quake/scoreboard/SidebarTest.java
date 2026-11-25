@@ -11,6 +11,7 @@ import java.util.Map;
 import moe.mchdf.quake.game.GameState;
 import moe.mchdf.quake.game.LobbyStatus;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.scoreboard.Criteria;
@@ -141,6 +142,26 @@ class SidebarTest {
         assertTrue(lines.contains("진행 중: arena"));
         assertTrue(lines.contains("게임 인원: 4명"));
         assertTrue(lines.contains("내 상태: 다음 게임 대기"));
+    }
+
+    @Test
+    void sidebarAvoidsHardToReadGrayText() {
+        var status = new LobbyStatus(GameState.WAITING, LobbyStatus.Participation.NONE, true,
+                new LobbyStatus.WorldSummary("arena", 2, 16), 1);
+        List<Component> lines = new java.util.ArrayList<>(SidebarLines.lobby(1, status, null));
+        lines.addAll(SidebarLines.game("RED", 1, 0, 5, 60, null));
+
+        for (Component line : lines) {
+            assertFalse(hasColor(line, NamedTextColor.GRAY) || hasColor(line, NamedTextColor.DARK_GRAY),
+                    () -> "회색 글씨: " + plain(line));
+        }
+    }
+
+    private static boolean hasColor(Component component, NamedTextColor color) {
+        if (color.equals(component.color())) {
+            return true;
+        }
+        return component.children().stream().anyMatch(child -> hasColor(child, color));
     }
 
     @Test
