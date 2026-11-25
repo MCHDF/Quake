@@ -66,6 +66,17 @@ final class Sidebar {
         shown.addAll(lines);
     }
 
+    /** 사이드바를 스코어보드에서 지운다. 다시 {@link #update}하면 새로 만든다. */
+    void remove() {
+        Objective registered = board.getObjective(OBJECTIVE_NAME);
+        if (registered != null) {
+            registered.unregister();
+        }
+        objective = null;
+        title = null;
+        shown.clear();
+    }
+
     private static String entry(int index) {
         return ENTRY_PREFIX + index;
     }

@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Predicate;
 import moe.mchdf.quake.game.GameEvent;
 import moe.mchdf.quake.game.GameListener;
 import moe.mchdf.quake.game.GameSession;
@@ -14,7 +15,6 @@ import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -23,6 +23,10 @@ import org.bukkit.plugin.java.JavaPlugin;
  *
  * <p>게임 이벤트를 구독해 점수 변화를 바로 반영하고, 접속 인원처럼 이벤트가 없는 정보는 1초마다 갱신한다.
  * 제목과 아래쪽 주소 줄은 config.yml의 {@code sidebar.title}, {@code sidebar.address}(MiniMessage)로 정한다.
+ *
+ * <p>Quake 모드를 쓰는 플레이어에게는 표시하지 않는다. 같은 정보는 모드 화면이 맡는다.
+ * 모드 핸드셰이크는 접속 직후에 도착하므로, 접속하자마자 그리지 않고 첫 1초 갱신 때 그려서
+ * 모드 사용자에게 사이드바가 잠깐 보였다 사라지지 않게 한다.
  */
 public final class ServerSidebar implements GameListener, Listener {
     static final String TITLE_KEY = "sidebar.title";
@@ -32,14 +36,20 @@ public final class ServerSidebar implements GameListener, Listener {
 
     private final GameSession game;
     private final PlayerBoards boards;
+    private final Predicate<Player> usesModUi;
     private final Map<UUID, Sidebar> sidebars = new HashMap<>();
     private final Component title;
     private final Component address;
     private GameEvent.Running lastRunning;
 
-    public ServerSidebar(GameSession game, PlayerBoards boards, FileConfiguration config) {
+    /**
+     * @param usesModUi 모드 화면을 쓰는 플레이어인지. 참이면 사이드바를 표시하지 않는다.
+     */
+    public ServerSidebar(GameSession game, PlayerBoards boards, Predicate<Player> usesModUi,
+                         FileConfiguration config) {
         this.game = game;
         this.boards = boards;
+        this.usesModUi = usesModUi;
         MiniMessage miniMessage = MiniMessage.miniMessage();
         title = miniMessage.deserialize(config.getString(TITLE_KEY, DEFAULT_TITLE));
         String addressText = config.getString(ADDRESS_KEY, "");
@@ -75,9 +85,9 @@ public final class ServerSidebar implements GameListener, Listener {
         }
     }
 
-    @EventHandler
-    public void onJoin(PlayerJoinEvent event) {
-        refresh(event.getPlayer());
+    /** 모드 핸드셰이크가 수락되면 호출한다. 이미 그린 사이드바를 바로 지운다. */
+    public void onModAccepted(Player player) {
+        refresh(player);
     }
 
     @EventHandler
@@ -93,6 +103,13 @@ public final class ServerSidebar implements GameListener, Listener {
 
     void refresh(Player player) {
         if (!player.isOnline()) {
+            return;
+        }
+        if (usesModUi.test(player)) {
+            Sidebar removed = sidebars.remove(player.getUniqueId());
+            if (removed != null) {
+                removed.remove();
+            }
             return;
         }
         var board = boards.boardOf(player);

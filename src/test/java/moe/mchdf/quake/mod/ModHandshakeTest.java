@@ -1,6 +1,7 @@
 package moe.mchdf.quake.mod;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -42,6 +43,27 @@ class ModHandshakeTest {
 
         assertTrue(handshake.hasMod(player));
         verify(player).sendPluginMessage(plugin, ModProtocol.HANDSHAKE_CHANNEL, ModHandshake.encodeReply(true));
+    }
+
+    @Test
+    void notifiesAcceptListenersOnlyOnFirstAccept() {
+        java.util.List<Player> accepted = new java.util.ArrayList<>();
+        handshake.addAcceptListener(accepted::add);
+
+        handshake.onPluginMessageReceived(ModProtocol.HANDSHAKE_CHANNEL, player, intBytes(ModProtocol.VERSION));
+        handshake.onPluginMessageReceived(ModProtocol.HANDSHAKE_CHANNEL, player, intBytes(ModProtocol.VERSION));
+
+        assertEquals(java.util.List.of(player), accepted);
+    }
+
+    @Test
+    void doesNotNotifyAcceptListenersOnReject() {
+        java.util.List<Player> accepted = new java.util.ArrayList<>();
+        handshake.addAcceptListener(accepted::add);
+
+        handshake.onPluginMessageReceived(ModProtocol.HANDSHAKE_CHANNEL, player, intBytes(ModProtocol.VERSION + 1));
+
+        assertTrue(accepted.isEmpty());
     }
 
     @Test

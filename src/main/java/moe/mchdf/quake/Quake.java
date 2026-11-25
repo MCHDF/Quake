@@ -45,9 +45,12 @@ public final class Quake extends JavaPlugin {
         getServer().getPluginManager().registerEvents(playerBoards, this);
         game = new GameSession(this, book, gameWorld, lobbyArrival, playerBoards);
         game.addListener(new GameChatNotifier());
+        modHandshake = new ModHandshake(this);
+        modHandshake.register();
         ServerSidebar.addDefaults(getConfig());
         saveConfig();
-        ServerSidebar sidebar = new ServerSidebar(game, playerBoards, getConfig());
+        ServerSidebar sidebar = new ServerSidebar(game, playerBoards, modHandshake::hasMod, getConfig());
+        modHandshake.addAcceptListener(sidebar::onModAccepted);
         game.addListener(sidebar);
         getServer().getPluginManager().registerEvents(sidebar, this);
         sidebar.start(this);
@@ -64,8 +67,6 @@ public final class Quake extends JavaPlugin {
         getServer().getPluginManager().registerEvents(worldTeleportMenu, this);
         getServer().getPluginManager().registerEvents(game.getDoubleJump(), this);
         getServer().getPluginManager().registerEvents(new RailGunListener(railGunWeapon), this);
-        modHandshake = new ModHandshake(this);
-        modHandshake.register();
         getServer().getOnlinePlayers().forEach(book::giveMenuBook);
         // Plugin startup logic
         getComponentLogger().info(
