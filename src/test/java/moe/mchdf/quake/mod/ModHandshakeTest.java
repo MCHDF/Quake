@@ -10,10 +10,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Logger;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerRegisterChannelEvent;
 import org.bukkit.plugin.Plugin;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +32,7 @@ class ModHandshakeTest {
         player = mock(Player.class);
         when(player.getUniqueId()).thenReturn(UUID.randomUUID());
         when(player.getName()).thenReturn("tester");
+        when(player.getListeningPluginChannels()).thenReturn(Set.of(ModProtocol.HANDSHAKE_CHANNEL));
         handshake = new ModHandshake(plugin);
     }
 
@@ -47,6 +50,25 @@ class ModHandshakeTest {
 
         assertFalse(handshake.hasMod(player));
         verify(player).sendPluginMessage(plugin, ModProtocol.HANDSHAKE_CHANNEL, ModHandshake.encodeReply(false));
+    }
+
+    @Test
+    void holdsReplyUntilClientRegistersChannel() {
+        when(player.getListeningPluginChannels()).thenReturn(Set.of());
+        handshake.onPluginMessageReceived(ModProtocol.HANDSHAKE_CHANNEL, player, intBytes(ModProtocol.VERSION));
+
+        assertTrue(handshake.hasMod(player));
+        verify(player, never()).sendPluginMessage(any(), eq(ModProtocol.HANDSHAKE_CHANNEL), any());
+
+        handshake.onRegisterChannel(new PlayerRegisterChannelEvent(player, "minecraft:other"));
+        verify(player, never()).sendPluginMessage(any(), eq(ModProtocol.HANDSHAKE_CHANNEL), any());
+
+        handshake.onRegisterChannel(new PlayerRegisterChannelEvent(player, ModProtocol.HANDSHAKE_CHANNEL));
+        verify(player).sendPluginMessage(plugin, ModProtocol.HANDSHAKE_CHANNEL, ModHandshake.encodeReply(true));
+
+        // 한 번 보낸 응답은 다시 보내지 않습니다.
+        handshake.onRegisterChannel(new PlayerRegisterChannelEvent(player, ModProtocol.HANDSHAKE_CHANNEL));
+        verify(player).sendPluginMessage(plugin, ModProtocol.HANDSHAKE_CHANNEL, ModHandshake.encodeReply(true));
     }
 
     @Test
