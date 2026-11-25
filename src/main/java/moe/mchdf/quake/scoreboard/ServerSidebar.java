@@ -1,7 +1,6 @@
 package moe.mchdf.quake.scoreboard;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import moe.mchdf.quake.game.GameEvent;
@@ -107,7 +106,7 @@ public final class ServerSidebar implements GameListener, Listener {
             if (removed != null) {
                 removed.remove();
             }
-            modSidebar.show(player, title, linesFor(player));
+            modSidebar.show(player, title, contentFor(player));
             return;
         }
         var board = boards.boardOf(player);
@@ -116,14 +115,14 @@ public final class ServerSidebar implements GameListener, Listener {
             sidebar = new Sidebar(board);
             sidebars.put(player.getUniqueId(), sidebar);
         }
-        sidebar.update(title, linesFor(player));
+        sidebar.update(title, contentFor(player).vanillaLines());
     }
 
-    private List<Component> linesFor(Player player) {
+    private SidebarContent contentFor(Player player) {
         String team = game.getGameTeams().getTeamOf(player);
         if (game.isPlaying(player) && team != null && lastRunning != null) {
             return SidebarLines.game(team, lastRunning.redScore(), lastRunning.blueScore(),
-                    lastRunning.targetScore(), lastRunning.remainingSeconds(), address);
+                    lastRunning.targetScore(), lastRunning.remainingSeconds(), lastRunning.totalSeconds(), address);
         }
         return SidebarLines.lobby(Bukkit.getOnlinePlayers().size(), game.lobbyStatus(player), address);
     }

@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import moe.mchdf.quake.game.GameState;
+import moe.mchdf.quake.game.GameTeams;
 import moe.mchdf.quake.game.LobbyStatus;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -117,7 +118,7 @@ class SidebarTest {
         var status = new LobbyStatus(GameState.WAITING, LobbyStatus.Participation.WAITING, true,
                 new LobbyStatus.WorldSummary("arena", 2, 16), 3);
 
-        List<String> lines = plain(SidebarLines.lobby(5, status, Component.text("play.example.com")));
+        List<String> lines = plain(SidebarLines.lobby(5, status, Component.text("play.example.com")).vanillaLines());
 
         assertEquals(List.of("", "접속 인원: 5명", "", "다음 맵: arena", "참여 인원: 3명 (최소 2)",
                 "내 상태: 참여 대기", "", "play.example.com"), lines);
@@ -127,7 +128,7 @@ class SidebarTest {
     void lobbyLinesWithoutWorldOrAddress() {
         var status = new LobbyStatus(GameState.WAITING, LobbyStatus.Participation.NONE, false, null, 0);
 
-        List<String> lines = plain(SidebarLines.lobby(1, status, null));
+        List<String> lines = plain(SidebarLines.lobby(1, status, null).vanillaLines());
 
         assertEquals(List.of("", "접속 인원: 1명", "", "맵: 준비된 맵 없음", "내 상태: 미참여"), lines);
     }
@@ -137,7 +138,7 @@ class SidebarTest {
         var status = new LobbyStatus(GameState.RUNNING, LobbyStatus.Participation.QUEUED, true,
                 new LobbyStatus.WorldSummary("arena", 2, 16), 4);
 
-        List<String> lines = plain(SidebarLines.lobby(6, status, null));
+        List<String> lines = plain(SidebarLines.lobby(6, status, null).vanillaLines());
 
         assertTrue(lines.contains("진행 중: arena"));
         assertTrue(lines.contains("게임 인원: 4명"));
@@ -148,8 +149,8 @@ class SidebarTest {
     void sidebarAvoidsHardToReadGrayText() {
         var status = new LobbyStatus(GameState.WAITING, LobbyStatus.Participation.NONE, true,
                 new LobbyStatus.WorldSummary("arena", 2, 16), 1);
-        List<Component> lines = new java.util.ArrayList<>(SidebarLines.lobby(1, status, null));
-        lines.addAll(SidebarLines.game("RED", 1, 0, 5, 60, null));
+        List<Component> lines = new java.util.ArrayList<>(SidebarLines.lobby(1, status, null).vanillaLines());
+        lines.addAll(SidebarLines.game("RED", 1, 0, 5, 60, 180, null).vanillaLines());
 
         for (Component line : lines) {
             assertFalse(hasColor(line, NamedTextColor.GRAY) || hasColor(line, NamedTextColor.DARK_GRAY),
@@ -165,10 +166,33 @@ class SidebarTest {
     }
 
     @Test
-    void gameLinesShowMyTeamScoresAndTime() {
-        List<String> lines = plain(SidebarLines.game("BLUE", 3, 2, 5, 151, null));
+    void modRowsUseBarsAndTeamAccent() {
+        SidebarContent content = SidebarLines.game("BLUE", 3, 2, 5, 90, 180, Component.text("addr"));
 
-        assertEquals(List.of("", "내 팀: BLUE", "", "RED 3점", "BLUE 2점", "목표: 5점", "", "남은 시간: 02:31"),
+        assertEquals(GameTeams.colorOf("BLUE"), content.accent());
+        var bars = content.rows().stream().filter(SidebarRow.Bar.class::isInstance)
+                .map(SidebarRow.Bar.class::cast).toList();
+        assertEquals(List.of(0.6f, 0.4f, 0.5f), bars.stream().map(SidebarRow.Bar::ratio).toList());
+        assertEquals(new SidebarRow.Text(Component.text("addr"), true), content.rows().getLast());
+    }
+
+    @Test
+    void joinBarShowsProgressTowardMinimumAndIsClamped() {
+        var status = new LobbyStatus(GameState.WAITING, LobbyStatus.Participation.WAITING, true,
+                new LobbyStatus.WorldSummary("arena", 2, 16), 5);
+
+        var bar = SidebarLines.lobby(5, status, null).rows().stream()
+                .filter(SidebarRow.Bar.class::isInstance).map(SidebarRow.Bar.class::cast).findFirst().orElseThrow();
+
+        assertEquals(1f, bar.ratio());
+        assertNull(SidebarLines.lobby(5, status, null).accent());
+    }
+
+    @Test
+    void gameLinesShowMyTeamScoresAndTime() {
+        List<String> lines = plain(SidebarLines.game("BLUE", 3, 2, 5, 151, 180, null).vanillaLines());
+
+        assertEquals(List.of("", "내 팀: BLUE", "", "RED: 3점", "BLUE: 2점", "목표: 5점", "", "남은 시간: 02:31"),
                 lines);
     }
 }

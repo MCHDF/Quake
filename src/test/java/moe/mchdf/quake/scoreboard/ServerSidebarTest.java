@@ -79,7 +79,7 @@ class ServerSidebarTest {
         sidebar.refreshAll();
 
         verify(board).registerNewObjective(eq(Sidebar.OBJECTIVE_NAME), nullable(Criteria.class), any(Component.class));
-        verify(modSidebar, never()).show(any(), any(), anyList());
+        verify(modSidebar, never()).show(any(), any(), any());
     }
 
     @Test
@@ -89,7 +89,7 @@ class ServerSidebarTest {
         sidebar.refreshAll();
 
         verify(board, never()).registerNewObjective(anyString(), nullable(Criteria.class), any(Component.class));
-        List<Component> expected = SidebarLines.lobby(1,
+        SidebarContent expected = SidebarLines.lobby(1,
                 new LobbyStatus(GameState.WAITING, LobbyStatus.Participation.NONE, false, null, 0), null);
         verify(modSidebar).show(eq(player), any(Component.class), eq(expected));
     }
@@ -102,7 +102,7 @@ class ServerSidebarTest {
         sidebar.onModAccepted(player);
 
         verify(objective).unregister();
-        verify(modSidebar).show(eq(player), any(Component.class), anyList());
+        verify(modSidebar).show(eq(player), any(Component.class), any(SidebarContent.class));
         // 이후 1초 갱신에서도 다시 만들지 않는다.
         sidebar.refreshAll();
         verify(board, times(1)).registerNewObjective(anyString(), nullable(Criteria.class), any(Component.class));

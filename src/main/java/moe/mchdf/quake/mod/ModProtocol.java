@@ -12,9 +12,8 @@ public final class ModProtocol {
     public static final String HANDSHAKE_CHANNEL = "quake:handshake";
 
     /**
-     * 사이드바 채널. 서버 → 클라: boolean 표시 여부, 문자열 제목, 문자열 목록 줄.
-     * 문자열은 VarInt 바이트 길이 + UTF-8, 목록은 VarInt 개수 + 원소이며 제목과 줄은 텍스트 컴포넌트 JSON입니다.
-     * (마인크래프트 {@code ByteBufCodecs.BOOL}, {@code STRING_UTF8}, {@code list()}와 같은 형식)
+     * 사이드바 채널. 서버 → 클라: 제목, 강조색, 줄 목록(구분선·글자·값·막대). 형식은 {@link ModSidebar#encode}를 봅니다.
+     * 문자열은 VarInt 바이트 길이 + UTF-8(마인크래프트 {@code STRING_UTF8}), 글자는 텍스트 컴포넌트 JSON입니다.
      */
     public static final String SIDEBAR_CHANNEL = "quake:sidebar";
 
