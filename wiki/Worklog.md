@@ -10,6 +10,7 @@
   - 플러그인: `mod/ModHandshake`가 모드 버전을 받아 응답하고, 버전이 맞는 플레이어를 기록합니다(`Quake.getModHandshake().hasMod(player)`). 테스트 `ModHandshakeTest`.
   - 모드: `client/QuakeServerConnection`이 서버가 채널을 등록했을 때만 핸드셰이크를 보내고, 수락 응답을 받으면 활성화, 접속이 끊기면 비활성화합니다. 모드 기능은 `QuakeServerConnection.isActive()`로 확인합니다.
   - 버전이 다르면 서버가 거절 응답을 보내고 모드는 채팅으로 안내한 뒤 꺼진 상태로 남습니다.
+- 모드에 활성화 확인용 테스트 GUI 추가: Ctrl+F (`client/QuakeTestKey`, `client/screen/QuakeTestScreen`). 활성 상태면 화면을 열고, 비활성이면 액션바에 안내만 띄웁니다. 실제 GUI를 만들면 지웁니다.
 - 다음 할 일: 실제 클라이언트로 접속 확인, 첫 모드 화면 (통신 구조 검증용)
 
 ## 2026-11-24 · 코드 세션 (4)
