@@ -12,6 +12,7 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import java.util.Set;
 import java.util.UUID;
+import moe.mchdf.quake.scoreboard.PlayerBoards;
 import moe.mchdf.quake.item.RailGunItem;
 import moe.mchdf.quake.menu.MenuBook;
 import org.bukkit.Bukkit;
@@ -33,15 +34,17 @@ public final class GameSession {
     // During a game, this set contains only the players who joined before it started.
     private final Set<UUID> participants = new LinkedHashSet<>();
     private final Set<UUID> nextGameQueue = new LinkedHashSet<>();
-    private final GameTeams gameTeams = new GameTeams();
+    private final GameTeams gameTeams;
     private final List<GameListener> listeners = new ArrayList<>();
     private final DoubleJump doubleJump = new DoubleJump();
     private final GameTimer timer;
     private final GameSettings settings;
     private GameState state = GameState.WAITING;
 
-    public GameSession(JavaPlugin plugin, MenuBook book, GameWorld worlds, LobbyArrival lobbyArrival) {
+    public GameSession(JavaPlugin plugin, MenuBook book, GameWorld worlds, LobbyArrival lobbyArrival,
+                       PlayerBoards boards) {
         this.lobbyArrival = lobbyArrival;
+        gameTeams = new GameTeams(boards);
         this.worlds = worlds;
         this.book = book;
         timer = new GameTimer(plugin);
@@ -258,7 +261,7 @@ public final class GameSession {
             return;
         }
         List<UUID> selected = participants.stream().limit(currentWorld.maxPlayers()).toList();
-        // Assign teams before choosing each player's spawn, but restore scoreboards if a teleport fails.
+        // Assign teams before choosing each player's spawn, but remove the team display if a teleport fails.
         gameTeams.assign(selected);
         for (UUID id : selected) {
             Player player = Bukkit.getPlayer(id);

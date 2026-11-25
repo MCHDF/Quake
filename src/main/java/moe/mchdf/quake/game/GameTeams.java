@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
+import moe.mchdf.quake.scoreboard.PlayerBoards;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -23,17 +24,25 @@ public final class GameTeams {
     /** 팀 표시 색. 이름표, 채팅, 탭 목록, 보스바 글자 등 팀 색이 쓰이는 모든 곳의 기준. */
     public static final NamedTextColor RED_COLOR = NamedTextColor.RED;
     public static final NamedTextColor BLUE_COLOR = NamedTextColor.AQUA;
+    private static final String KILLS_OBJECTIVE = "kills";
 
-    private final Map<UUID, Scoreboard> previousScoreboards = new HashMap<>();
+    private final PlayerBoards boards;
     private final Map<UUID, String> playerTeams = new HashMap<>();
     private final Map<String, Integer> teamScores = new HashMap<>();
     // 처치 수는 플러그인이 직접 보관하고, 스코어보드 objective는 탭 목록 표시용으로만 쓴다.
     private final Map<UUID, Integer> kills = new HashMap<>();
-    private Objective killsObjective;
-    private Scoreboard scoreboard;
+    private boolean active;
     private int targetScore = 5;
     private Runnable targetReachedListener;
     private Consumer<GameEvent.PointScored> pointScoredListener;
+
+    /**
+     * 팀 표시는 플레이어마다 가진 개인 스코어보드({@link PlayerBoards})에 등록한다.
+     * 사이드바도 같은 스코어보드를 쓰므로 게임 중에 스코어보드를 바꿔 끼우지 않는다.
+     */
+    GameTeams(PlayerBoards boards) {
+        this.boards = boards;
+    }
 
     void assign(Collection<UUID> participants) {
         clear();
@@ -48,25 +57,28 @@ public final class GameTeams {
             throw new IllegalStateException("At least two players are required for teams");
         }
         Collections.shuffle(players);
-        scoreboard = Bukkit.getScoreboardManager().getNewScoreboard();
-        Team red = createTeam("RED", RED_COLOR);
-        Team blue = createTeam("BLUE", BLUE_COLOR);
-        teamScores.put("RED", 0);
-        teamScores.put("BLUE", 0);
-        // The scoreboard is only set for participants, so everyone else keeps the default tab list.
-        killsObjective = scoreboard.registerNewObjective("kills", Criteria.DUMMY, Component.text("처치"));
-        killsObjective.setDisplaySlot(DisplaySlot.PLAYER_LIST);
         for (int i = 0; i < players.size(); i++) {
             Player player = players.get(i);
-            Team team = i % 2 == 0 ? red : blue;
-            team.addEntry(player.getName());
-            previousScoreboards.put(player.getUniqueId(), player.getScoreboard());
-            playerTeams.put(player.getUniqueId(), team.getName());
-            player.setScoreboard(scoreboard);
+            playerTeams.put(player.getUniqueId(), i % 2 == 0 ? "RED" : "BLUE");
             kills.put(player.getUniqueId(), 0);
-            killsObjective.getScore(player.getName()).setScore(0);
-            updateTabListFooter();
         }
+        teamScores.put("RED", 0);
+        teamScores.put("BLUE", 0);
+        active = true;
+        // 참가자 각자의 스코어보드에 두 팀과 전체 참가자를 등록해야 팀 색과 이름표 숨김이 보인다.
+        // 참가자가 아닌 플레이어의 스코어보드에는 등록하지 않으므로 그들은 기본 탭 목록을 그대로 본다.
+        for (Player viewer : players) {
+            Scoreboard board = boards.boardOf(viewer);
+            Team red = createTeam(board, "RED", RED_COLOR);
+            Team blue = createTeam(board, "BLUE", BLUE_COLOR);
+            Objective objective = board.registerNewObjective(KILLS_OBJECTIVE, Criteria.DUMMY, Component.text("처치"));
+            objective.setDisplaySlot(DisplaySlot.PLAYER_LIST);
+            for (Player member : players) {
+                ("RED".equals(getTeamOf(member)) ? red : blue).addEntry(member.getName());
+                objective.getScore(member.getName()).setScore(0);
+            }
+        }
+        updateTabListFooter();
     }
 
     public String getTeamOf(Player player) {
@@ -110,8 +122,11 @@ public final class GameTeams {
         int newScore = teamScores.getOrDefault(team, 0) + 1;
         teamScores.put(team, newScore);
         int shooterKills = kills.merge(shooter.getUniqueId(), 1, Integer::sum);
-        if (killsObjective != null) {
-            killsObjective.getScore(shooter.getName()).setScore(shooterKills);
+        for (Scoreboard board : participantBoards()) {
+            Objective objective = board.getObjective(KILLS_OBJECTIVE);
+            if (objective != null) {
+                objective.getScore(shooter.getName()).setScore(shooterKills);
+            }
         }
         updateTabListFooter();
         if (pointScoredListener != null) {
@@ -140,8 +155,8 @@ public final class GameTeams {
         return this;
     }
 
-    private Team createTeam(String name, NamedTextColor color) {
-        Team team = scoreboard.registerNewTeam(name);
+    private static Team createTeam(Scoreboard board, String name, NamedTextColor color) {
+        Team team = board.registerNewTeam(name);
         team.displayName(Component.text(name, color));
         team.color(color);
         team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.FOR_OTHER_TEAMS);
@@ -152,20 +167,20 @@ public final class GameTeams {
         return "RED".equals(team) ? RED_COLOR : BLUE_COLOR;
     }
 
-    void updateTabListFooter() {
-        if (scoreboard == null) {
-            return;
-        }
-        Team red = null;
-        Team blue = null;
-        for (Team team : scoreboard.getTeams()) {
-            if (team.getName().equals("RED")) {
-                red = team;
-            } else if (team.getName().equals("BLUE")) {
-                blue = team;
+    /** 지금 접속해 있는 참가자들의 개인 스코어보드 */
+    private List<Scoreboard> participantBoards() {
+        List<Scoreboard> result = new ArrayList<>();
+        for (UUID id : playerTeams.keySet()) {
+            Scoreboard board = boards.find(id);
+            if (board != null) {
+                result.add(board);
             }
         }
-        if (red == null || blue == null) {
+        return result;
+    }
+
+    void updateTabListFooter() {
+        if (!active) {
             return;
         }
         int redTotal = getTeamScore("RED");
@@ -178,14 +193,10 @@ public final class GameTeams {
                 .append(Component.text("BLUE", BLUE_COLOR))
                 .appendNewline();
 
-        for (String entry : scoreboard.getEntries()) {
-            Player player = Bukkit.getPlayerExact(entry);
-            if (player == null || player.getScoreboard() != scoreboard) {
-                continue;
-            }
-            Team playerTeam = scoreboard.getEntryTeam(entry);
-            if (playerTeam == null) {
-                continue;
+        playerTeams.forEach((id, team) -> {
+            Player player = Bukkit.getPlayer(id);
+            if (player == null) {
+                return;
             }
             Component footer = Component.text("RED ", RED_COLOR)
                     .append(Component.text(String.valueOf(redTotal), NamedTextColor.WHITE))
@@ -195,58 +206,71 @@ public final class GameTeams {
                     .appendNewline()
                     .appendNewline()
                     .append(Component.text("내 팀: ", NamedTextColor.GRAY))
-                    .append(Component.text(playerTeam.getName(), playerTeam.color()))
+                    .append(Component.text(team, colorOf(team)))
                     .appendNewline();
             player.sendPlayerListHeaderAndFooter(header, footer);
-        }
+        });
     }
 
     void remove(Player player) {
-        Scoreboard previous = previousScoreboards.remove(player.getUniqueId());
-        playerTeams.remove(player.getUniqueId());
-        if (previous == null) {
+        if (playerTeams.remove(player.getUniqueId()) == null) {
             return;
         }
-        Team team = scoreboard.getEntryTeam(player.getName());
-        if (team != null) {
-            team.removeEntry(player.getName());
+        Scoreboard own = boards.find(player.getUniqueId());
+        if (own != null) {
+            removeTeamDisplay(own);
         }
-        scoreboard.resetScores(player.getName());
+        // 남은 참가자들의 스코어보드에서도 이 플레이어를 뺀다.
+        for (Scoreboard board : participantBoards()) {
+            Team team = board.getEntryTeam(player.getName());
+            if (team != null) {
+                team.removeEntry(player.getName());
+            }
+            Objective objective = board.getObjective(KILLS_OBJECTIVE);
+            if (objective != null) {
+                objective.getScore(player.getName()).resetScore();
+            }
+        }
         player.sendPlayerListHeaderAndFooter(Component.empty(), Component.empty());
-        if (player.getScoreboard() == scoreboard) {
-            player.setScoreboard(previous);
-        }
     }
 
     boolean hasEmptyTeam() {
-        if (scoreboard == null) {
+        if (!active) {
             return false;
         }
         return !playerTeams.containsValue("RED") || !playerTeams.containsValue("BLUE");
     }
 
     void clear() {
-        for (UUID id : new ArrayList<>(previousScoreboards.keySet())) {
+        for (UUID id : new ArrayList<>(playerTeams.keySet())) {
+            Scoreboard board = boards.find(id);
+            if (board != null) {
+                removeTeamDisplay(board);
+            }
             Player player = Bukkit.getPlayer(id);
             if (player != null) {
-                remove(player);
+                player.sendPlayerListHeaderAndFooter(Component.empty(), Component.empty());
             }
         }
-        previousScoreboards.clear();
         playerTeams.clear();
         teamScores.clear();
         kills.clear();
-        killsObjective = null;
+        active = false;
         pointScoredListener = null;
         targetReachedListener = null;
-        if (scoreboard != null) {
-            for (Team team : scoreboard.getTeams()) {
+    }
+
+    /** 개인 스코어보드에서 게임용 팀과 처치 수 objective만 지운다. 사이드바는 그대로 둔다. */
+    private static void removeTeamDisplay(Scoreboard board) {
+        for (String name : List.of("RED", "BLUE")) {
+            Team team = board.getTeam(name);
+            if (team != null) {
                 team.unregister();
             }
-            for (Objective objective : scoreboard.getObjectives()) {
-                objective.unregister();
-            }
-            scoreboard = null;
+        }
+        Objective objective = board.getObjective(KILLS_OBJECTIVE);
+        if (objective != null) {
+            objective.unregister();
         }
     }
 }

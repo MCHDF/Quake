@@ -12,6 +12,8 @@ import moe.mchdf.quake.menu.MinigameMenu;
 import moe.mchdf.quake.menu.WorldDeleteMenu;
 import moe.mchdf.quake.menu.WorldTeleportMenu;
 import moe.mchdf.quake.mod.ModHandshake;
+import moe.mchdf.quake.scoreboard.PlayerBoards;
+import moe.mchdf.quake.scoreboard.ServerSidebar;
 import moe.mchdf.quake.world.GameWorld;
 import moe.mchdf.quake.world.GameWorldListener;
 import moe.mchdf.quake.world.LobbyArrival;
@@ -28,6 +30,7 @@ public final class Quake extends JavaPlugin {
     private GameWorld gameWorld;
     private DatabaseManager database;
     private ModHandshake modHandshake;
+    private PlayerBoards playerBoards;
 
     @Override
     public void onEnable() {
@@ -38,8 +41,16 @@ public final class Quake extends JavaPlugin {
         LobbyWorldManager lobby = gameWorld.lobby();
         MenuBook book = new MenuBook();
         LobbyArrival lobbyArrival = new LobbyArrival(lobby, book);
-        game = new GameSession(this, book, gameWorld, lobbyArrival);
+        playerBoards = new PlayerBoards();
+        getServer().getPluginManager().registerEvents(playerBoards, this);
+        game = new GameSession(this, book, gameWorld, lobbyArrival, playerBoards);
         game.addListener(new GameChatNotifier());
+        ServerSidebar.addDefaults(getConfig());
+        saveConfig();
+        ServerSidebar sidebar = new ServerSidebar(game, playerBoards, getConfig());
+        game.addListener(sidebar);
+        getServer().getPluginManager().registerEvents(sidebar, this);
+        sidebar.start(this);
         MinigameMenu menu = new MinigameMenu(this, game);
         WorldDeleteMenu worldDeleteMenu = new WorldDeleteMenu(this, gameWorld);
         WorldTeleportMenu worldTeleportMenu = new WorldTeleportMenu(this, gameWorld, lobby);
@@ -67,6 +78,9 @@ public final class Quake extends JavaPlugin {
         if (game != null) {
             game.shutdown();
         }
+        if (playerBoards != null) {
+            playerBoards.shutdown();
+        }
         if (gameWorld != null) {
             gameWorld.saveAll();
         }
@@ -75,6 +89,7 @@ public final class Quake extends JavaPlugin {
         }
         gameWorld = null;
         database = null;
+        playerBoards = null;
         // Plugin shutdown logic
         getComponentLogger().info(
                 Component.text("MCHDF Quake 플러그인이 비활성화 되었습니다.", NamedTextColor.RED, TextDecoration.BOLD)
