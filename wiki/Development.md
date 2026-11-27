@@ -14,6 +14,8 @@
 | `menu/MinigameMenu` | 참여 Dialog 화면과 버튼 처리 |
 | `menu/MenuBook` | 메뉴 책 생성·지급·식별 |
 | `listener/PlayerListener` | 접속·퇴장·책 사용·드롭 이벤트 |
+| `combat/HitZones` | 맞은 지점 높이로 머리·몸통 판정. 서 있거나 웅크린 자세에서 눈 높이 0.12블록 아래부터 머리. 누운 자세는 항상 몸통. 무기와 분리되어 있어 다른 기능에서도 사용 |
+| `weapon/RailGunWeapon` | 레일건 발사·빔·효과음·명중 처리. 플레이어 히트박스를 사방 0.1블록(`HIT_MARGIN`)만 늘려 판정. 테스트 레일건은 맞은 부위(헤드샷·몸통)를 액션바에 표시 |
 | `game/GameSession` | 참여 명단, 다음 게임 대기열, 상태 전환, 시작·종료 |
 | `game/GameState` | 대기·카운트다운·게임 진행 상태 |
 | `game/GameTimer` | 카운트다운과 게임 시간 반복 작업 |

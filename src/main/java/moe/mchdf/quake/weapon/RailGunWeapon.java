@@ -2,7 +2,11 @@ package moe.mchdf.quake.weapon;
 
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import moe.mchdf.quake.combat.HitZone;
+import moe.mchdf.quake.combat.HitZones;
 import moe.mchdf.quake.game.GameTeams;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import moe.mchdf.quake.item.RailGunItem;
 import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
@@ -24,6 +28,11 @@ import org.joml.Vector3f;
 public final class RailGunWeapon {
     private static final double RANGE = 50.0D;
     private static final int COOLDOWN_TICKS = 36;
+    /**
+     * 플레이어 히트박스(가로 0.6, 세로 1.8블록)를 사방으로 늘리는 판정 여유 (블록).
+     * 0.1이면 가로 0.8, 세로 2.0블록. 움직이는 상대를 맞힐 때 생기는 핑 지연을 조금 봐주는 정도로만 둔다.
+     */
+    static final double HIT_MARGIN = 0.1D;
 
     // 빔 외형: 밝은 심 + 반투명 바깥층
     private record BeamStyle(Material core, Material glow) {
@@ -73,7 +82,7 @@ public final class RailGunWeapon {
         return GAME_BEAM;
     }
 
-    /** 테스트용 레일건: 빔과 효과음만 나고 팀/점수는 건드리지 않는다. */
+    /** 테스트용 레일건: 빔과 효과음만 나고 팀/점수는 건드리지 않는다. 맞히면 맞은 부위를 액션바에 표시한다. */
     public void fireTest(Player shooter) {
         fire(shooter, TEST_BEAM, false);
     }
@@ -94,7 +103,7 @@ public final class RailGunWeapon {
                 RANGE,
                 FluidCollisionMode.NEVER,
                 false,
-                0.4D,
+                HIT_MARGIN,
                 entity -> entity != shooter && entity instanceof Player
         );
 
@@ -117,6 +126,7 @@ public final class RailGunWeapon {
         Location impact = end.toLocation(world);
         if (!scoring) {
             playHitSound(shooter, impact);
+            showHitZone(shooter, HitZones.of(hitPlayer, end));
             return;
         }
         if (!gameTeams.areEnemies(shooter, hitPlayer)) {
@@ -125,6 +135,13 @@ public final class RailGunWeapon {
 
         playHitSound(shooter, impact);
         gameTeams.awardPoint(shooter, hitPlayer);
+    }
+
+    /** 테스트 레일건으로 맞힌 부위를 액션바에 보여 준다. 헤드샷 판정을 게임 안에서 확인하는 용도 */
+    private static void showHitZone(Player shooter, HitZone zone) {
+        shooter.sendActionBar(zone == HitZone.HEAD
+                ? Component.text("헤드샷", NamedTextColor.RED)
+                : Component.text("몸통", NamedTextColor.WHITE));
     }
 
     private static Vector muzzle(Location eye, Vector direction) {
