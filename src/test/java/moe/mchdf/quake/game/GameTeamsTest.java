@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import moe.mchdf.quake.combat.HitZone;
 import moe.mchdf.quake.scoreboard.PlayerBoards;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -94,8 +95,8 @@ class GameTeamsTest {
         Player shooter = "RED".equals(teams.getTeamOf(first)) ? first : second;
         Player target = shooter == first ? second : first;
 
-        teams.awardPoint(shooter, target);
-        teams.awardPoint(shooter, target);
+        teams.awardPoint(shooter, target, HitZone.BODY);
+        teams.awardPoint(shooter, target, HitZone.BODY);
 
         assertEquals(2, teams.getKills(shooter));
         assertEquals(0, teams.getKills(target));
@@ -120,13 +121,14 @@ class GameTeamsTest {
         teams.setPointScoredListener(events::add);
         String firstTeam = teams.getTeamOf(first);
 
-        teams.awardPoint(first, second);
+        teams.awardPoint(first, second, HitZone.HEAD);
 
         assertEquals(1, events.size());
         GameEvent.PointScored event = events.getFirst();
         assertSame(first, event.shooter());
         assertEquals(firstTeam, event.shooterTeam());
         assertSame(second, event.target());
+        assertEquals(HitZone.HEAD, event.zone());
         assertEquals(Set.of(first.getUniqueId(), second.getUniqueId()), Set.copyOf(event.recipients()));
         verify(first, never()).sendMessage(any(Component.class));
         verify(second, never()).sendMessage(any(Component.class));

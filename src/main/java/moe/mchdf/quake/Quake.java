@@ -12,6 +12,7 @@ import moe.mchdf.quake.menu.MinigameMenu;
 import moe.mchdf.quake.menu.WorldDeleteMenu;
 import moe.mchdf.quake.menu.WorldTeleportMenu;
 import moe.mchdf.quake.mod.ModHandshake;
+import moe.mchdf.quake.mod.ModHitMarker;
 import moe.mchdf.quake.mod.ModSidebar;
 import moe.mchdf.quake.scoreboard.PlayerBoards;
 import moe.mchdf.quake.scoreboard.ServerSidebar;
@@ -51,6 +52,9 @@ public final class Quake extends JavaPlugin {
         modHandshake.register();
         modSidebar = new ModSidebar(this, modHandshake);
         modSidebar.register();
+        ModHitMarker modHitMarker = new ModHitMarker(this, modHandshake);
+        modHitMarker.register();
+        game.addListener(modHitMarker);
         ServerSidebar.addDefaults(getConfig());
         saveConfig();
         ServerSidebar sidebar = new ServerSidebar(game, playerBoards, modSidebar, getConfig());
@@ -65,7 +69,7 @@ public final class Quake extends JavaPlugin {
         QuakeCommand executor = new QuakeCommand(this, book, game, gameWorld, worldDeleteMenu, worldTeleportMenu);
         command.setExecutor(executor);
         command.setTabCompleter(executor);
-        RailGunWeapon railGunWeapon = new RailGunWeapon(this, game.getGameTeams());
+        RailGunWeapon railGunWeapon = new RailGunWeapon(this, game.getGameTeams(), modHitMarker);
         getServer().getPluginManager().registerEvents(new PlayerListener(book, menu, game, lobbyArrival), this);
         getServer().getPluginManager().registerEvents(worldDeleteMenu, this);
         getServer().getPluginManager().registerEvents(worldTeleportMenu, this);

@@ -8,6 +8,7 @@ import moe.mchdf.quake.game.GameTeams;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import moe.mchdf.quake.item.RailGunItem;
+import moe.mchdf.quake.mod.ModHitMarker;
 import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -60,10 +61,12 @@ public final class RailGunWeapon {
 
     private final JavaPlugin plugin;
     private final GameTeams gameTeams;
+    private final ModHitMarker hitMarker;
 
-    public RailGunWeapon(JavaPlugin plugin, GameTeams gameTeams) {
+    public RailGunWeapon(JavaPlugin plugin, GameTeams gameTeams, ModHitMarker hitMarker) {
         this.plugin = plugin;
         this.gameTeams = gameTeams;
+        this.hitMarker = hitMarker;
     }
 
     /** 미니게임용 레일건: 적을 맞히면 득점한다. */
@@ -82,7 +85,10 @@ public final class RailGunWeapon {
         return GAME_BEAM;
     }
 
-    /** 테스트용 레일건: 빔과 효과음만 나고 팀/점수는 건드리지 않는다. 맞히면 맞은 부위를 액션바에 표시한다. */
+    /**
+     * 테스트용 레일건: 빔과 효과음만 나고 팀/점수는 건드리지 않는다.
+     * 맞히면 맞은 부위를 액션바에 표시하고, 모드 사용자에게는 히트마커 패킷도 보낸다.
+     */
     public void fireTest(Player shooter) {
         fire(shooter, TEST_BEAM, false);
     }
@@ -124,9 +130,11 @@ public final class RailGunWeapon {
         }
 
         Location impact = end.toLocation(world);
+        HitZone zone = HitZones.of(hitPlayer, end);
         if (!scoring) {
             playHitSound(shooter, impact);
-            showHitZone(shooter, HitZones.of(hitPlayer, end));
+            showHitZone(shooter, zone);
+            hitMarker.show(shooter, zone);
             return;
         }
         if (!gameTeams.areEnemies(shooter, hitPlayer)) {
@@ -134,7 +142,8 @@ public final class RailGunWeapon {
         }
 
         playHitSound(shooter, impact);
-        gameTeams.awardPoint(shooter, hitPlayer);
+        // 모드 히트마커는 득점 이벤트를 받아 보낸다(ModHitMarker).
+        gameTeams.awardPoint(shooter, hitPlayer, zone);
     }
 
     /** 테스트 레일건으로 맞힌 부위를 액션바에 보여 준다. 헤드샷 판정을 게임 안에서 확인하는 용도 */

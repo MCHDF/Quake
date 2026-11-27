@@ -6,7 +6,7 @@ package moe.mchdf.quake.mod;
  */
 public final class ModProtocol {
     /** 패킷 형식이 바뀌면 모드와 함께 올립니다. */
-    public static final int VERSION = 2;
+    public static final int VERSION = 3;
 
     /** 핸드셰이크 채널. 클라 → 서버: int 모드 버전 / 서버 → 클라: int 서버 버전, boolean 수락 여부. */
     public static final String HANDSHAKE_CHANNEL = "quake:handshake";
@@ -16,6 +16,9 @@ public final class ModProtocol {
      * 문자열은 VarInt 바이트 길이 + UTF-8(마인크래프트 {@code STRING_UTF8}), 글자는 텍스트 컴포넌트 JSON입니다.
      */
     public static final String SIDEBAR_CHANNEL = "quake:sidebar";
+
+    /** 명중 채널. 서버 → 클라(쏜 사람): byte 맞은 부위(0 몸통, 1 머리). 형식은 {@link ModHitMarker#encode}를 봅니다. */
+    public static final String HIT_CHANNEL = "quake:hit";
 
     private ModProtocol() {
     }
