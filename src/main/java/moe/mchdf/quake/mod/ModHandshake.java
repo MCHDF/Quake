@@ -6,10 +6,13 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -32,6 +35,7 @@ public final class ModHandshake implements PluginMessageListener, Listener {
     private final Plugin plugin;
     private final Set<UUID> modPlayers = new HashSet<>();
     private final Map<UUID, byte[]> pendingReplies = new HashMap<>();
+    private final List<Consumer<Player>> acceptListeners = new ArrayList<>();
 
     public ModHandshake(Plugin plugin) {
         this.plugin = plugin;
@@ -42,6 +46,14 @@ public final class ModHandshake implements PluginMessageListener, Listener {
         messenger.registerIncomingPluginChannel(plugin, ModProtocol.HANDSHAKE_CHANNEL, this);
         messenger.registerOutgoingPluginChannel(plugin, ModProtocol.HANDSHAKE_CHANNEL);
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
+    }
+
+    /**
+     * 핸드셰이크가 수락될 때 호출할 작업을 등록합니다. 바닐라 화면(사이드바 등)을 모드 화면으로 넘길 때 씁니다.
+     * 같은 접속에서 핸드셰이크가 다시 와도 처음 수락될 때만 호출합니다.
+     */
+    public void addAcceptListener(Consumer<Player> listener) {
+        acceptListeners.add(listener);
     }
 
     /** 핸드셰이크를 마친(버전이 맞는) 모드를 쓰는 플레이어인지 확인합니다. */
@@ -62,8 +74,9 @@ public final class ModHandshake implements PluginMessageListener, Listener {
             return;
         }
         boolean accepted = clientVersion == ModProtocol.VERSION;
+        boolean firstAccept = false;
         if (accepted) {
-            modPlayers.add(player.getUniqueId());
+            firstAccept = modPlayers.add(player.getUniqueId());
             plugin.getLogger().info(player.getName() + "이(가) Quake 모드로 접속했습니다. (프로토콜 " + clientVersion + ")");
         } else {
             modPlayers.remove(player.getUniqueId());
@@ -71,6 +84,10 @@ public final class ModHandshake implements PluginMessageListener, Listener {
                     + clientVersion + ", 서버 " + ModProtocol.VERSION + ")");
         }
         sendReply(player, encodeReply(accepted));
+        // 수락 응답을 먼저 보내고, 사이드바 등 모드 화면 패킷은 그 뒤에 보낸다.
+        if (firstAccept) {
+            acceptListeners.forEach(listener -> listener.accept(player));
+        }
     }
 
     private void sendReply(Player player, byte[] reply) {

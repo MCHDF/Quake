@@ -24,6 +24,7 @@ import org.bukkit.World;
 import org.bukkit.Location;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.ItemStack;
+import moe.mchdf.quake.scoreboard.PlayerBoards;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -75,7 +76,7 @@ class GameSessionTest {
         LobbyWorldManager lobby = mock(LobbyWorldManager.class);
         lobbySpawn = new Location(mock(World.class), 1, 64, 2);
         when(lobby.spawn()).thenReturn(lobbySpawn);
-        game = new GameSession(plugin, book, worlds, new LobbyArrival(lobby, book));
+        game = new GameSession(plugin, book, worlds, new LobbyArrival(lobby, book), mock(PlayerBoards.class));
     }
 
     @AfterEach
