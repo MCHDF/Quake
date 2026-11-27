@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import moe.mchdf.quake.combat.HitZone;
-import moe.mchdf.quake.menu.MenuBook;
+import moe.mchdf.quake.menu.LobbyItems;
 import moe.mchdf.quake.item.RailGunItem;
 import moe.mchdf.quake.world.GameWorld;
 import moe.mchdf.quake.world.GameWorldInfo;
@@ -45,7 +45,7 @@ class GameSessionTest {
     private MockedStatic<Bukkit> bukkit;
     private MockedConstruction<GameTeams> teams;
     private GameSession game;
-    private MenuBook book;
+    private LobbyItems lobbyItems;
     private GameWorld worlds;
     private Location lobbySpawn;
     private MockedStatic<RailGunItem> railGun;
@@ -63,7 +63,7 @@ class GameSessionTest {
         ready.add(arena("arena_a", 2, 16));
         JavaPlugin plugin = mock(JavaPlugin.class);
         when(plugin.getConfig()).thenReturn(new YamlConfiguration());
-        book = mock(MenuBook.class);
+        lobbyItems = mock(LobbyItems.class);
         BukkitScheduler scheduler = mock(BukkitScheduler.class);
         bukkit.when(Bukkit::getScheduler).thenReturn(scheduler);
         bukkit.when(() -> Bukkit.getPlayer(any(UUID.class)))
@@ -77,7 +77,7 @@ class GameSessionTest {
         LobbyWorldManager lobby = mock(LobbyWorldManager.class);
         lobbySpawn = new Location(mock(World.class), 1, 64, 2);
         when(lobby.spawn()).thenReturn(lobbySpawn);
-        game = new GameSession(plugin, book, worlds, new LobbyArrival(lobby, book), mock(PlayerBoards.class));
+        game = new GameSession(plugin, lobbyItems, worlds, new LobbyArrival(lobby, lobbyItems), mock(PlayerBoards.class));
     }
 
     @AfterEach
@@ -304,7 +304,7 @@ class GameSessionTest {
         verify(teams.constructed().getFirst()).clear();
         Location original = first.getLocation();
         verify(first).teleport(original);
-        verify(book, never()).removeMenuBooks(any());
+        verify(lobbyItems, never()).remove(any());
     }
 
     private Player player() {
@@ -322,7 +322,7 @@ class GameSessionTest {
     private void verifyLobbyArrival(Player player) {
         verify(player.getInventory()).clear();
         verify(player.getInventory()).setHeldItemSlot(0);
-        verify(book).giveMenuBook(player);
+        verify(lobbyItems).give(player);
         verify(player).setGameMode(GameMode.ADVENTURE);
         verify(player).teleport(lobbySpawn);
         Location original = player.getLocation();
@@ -442,7 +442,7 @@ class GameSessionTest {
         assertTrue(game.contains(second));
         assertFalse(game.contains(first));
         assertFalse(game.isQueued(second));
-        verify(book).giveMenuBook(second);
+        verify(lobbyItems).give(second);
         assertEquals(1, tasks.stream().filter(task -> !task.cancelled).count());
         tickSeconds(200);
         assertTrue(game.contains(second));
@@ -482,13 +482,13 @@ class GameSessionTest {
         assertFalse(game.contains(first));
         assertFalse(game.isQueued(next));
         assertEquals(1, tasks.stream().filter(task -> !task.cancelled).count());
-        verify(book).giveMenuBook(remaining);
+        verify(lobbyItems).give(remaining);
         tickSeconds(29);
         assertEquals(GameState.COUNTDOWN, game.getState());
         tickSeconds(1);
         assertTrue(game.isRunning());
-        verify(book, times(2)).removeMenuBooks(remaining);
-        verify(book).removeMenuBooks(next);
+        verify(lobbyItems, times(2)).remove(remaining);
+        verify(lobbyItems).remove(next);
     }
 
     @Test
@@ -540,7 +540,7 @@ class GameSessionTest {
         verify(next).showBossBar(any());
         tickSeconds(30);
         assertTrue(game.isRunning());
-        verify(book).removeMenuBooks(next);
+        verify(lobbyItems).remove(next);
     }
 
     @Test

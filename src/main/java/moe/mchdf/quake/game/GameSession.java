@@ -14,7 +14,7 @@ import java.util.Set;
 import java.util.UUID;
 import moe.mchdf.quake.scoreboard.PlayerBoards;
 import moe.mchdf.quake.item.RailGunItem;
-import moe.mchdf.quake.menu.MenuBook;
+import moe.mchdf.quake.menu.LobbyItems;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -22,7 +22,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 public final class GameSession {
     private static final int ROTATION_WAIT_SECONDS = 30;
     private static final float WALK_SPEED_MULTIPLIER = 2.0F;
-    private final MenuBook book;
+    private final LobbyItems lobbyItems;
     private final GameWorld worlds;
     private final LobbyArrival lobbyArrival;
     private GameWorldInfo currentWorld;
@@ -41,12 +41,12 @@ public final class GameSession {
     private final GameSettings settings;
     private GameState state = GameState.WAITING;
 
-    public GameSession(JavaPlugin plugin, MenuBook book, GameWorld worlds, LobbyArrival lobbyArrival,
+    public GameSession(JavaPlugin plugin, LobbyItems lobbyItems, GameWorld worlds, LobbyArrival lobbyArrival,
                        PlayerBoards boards) {
         this.lobbyArrival = lobbyArrival;
         gameTeams = new GameTeams(boards);
         this.worlds = worlds;
-        this.book = book;
+        this.lobbyItems = lobbyItems;
         timer = new GameTimer(plugin);
         settings = new GameSettings(plugin);
         listeners.add(new GameDisplay());
@@ -304,7 +304,7 @@ public final class GameSession {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
                 player.closeInventory();
-                book.removeMenuBooks(player);
+                lobbyItems.remove(player);
                 RailGunItem.removeFromInventory(player);
                 player.getInventory().addItem(RailGunItem.create());
                 doubleJump.enable(player);
@@ -401,7 +401,7 @@ public final class GameSession {
                 restoreWalkSpeed(player);
                 RailGunItem.removeFromInventory(player);
                 publish(new GameEvent.PlayerHidden(player));
-                book.giveMenuBook(player);
+                lobbyItems.give(player);
             }
         }
         previousWalkSpeeds.clear();

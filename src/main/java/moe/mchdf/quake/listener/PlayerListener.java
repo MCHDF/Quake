@@ -1,8 +1,10 @@
 package moe.mchdf.quake.listener;
 
 import moe.mchdf.quake.game.GameSession;
+import moe.mchdf.quake.item.SettingsItem;
 import moe.mchdf.quake.menu.MenuBook;
 import moe.mchdf.quake.menu.MinigameMenu;
+import moe.mchdf.quake.menu.SettingsMenu;
 import moe.mchdf.quake.world.LobbyArrival;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -14,6 +16,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.server.ServerListPingEvent;
+import org.bukkit.inventory.ItemStack;
 
 public final class PlayerListener implements Listener {
     private static final Component SERVER_MOTD = MiniMessage.miniMessage().deserialize(
@@ -21,19 +24,23 @@ public final class PlayerListener implements Listener {
 
     private final MenuBook book;
     private final MinigameMenu menu;
+    private final SettingsMenu settingsMenu;
     private final GameSession game;
     private final LobbyArrival lobbyArrival;
 
-    public PlayerListener(MenuBook book, MinigameMenu menu, GameSession game, LobbyArrival lobbyArrival) {
+    public PlayerListener(MenuBook book, MinigameMenu menu, SettingsMenu settingsMenu, GameSession game,
+                          LobbyArrival lobbyArrival) {
         this.book = book;
         this.menu = menu;
+        this.settingsMenu = settingsMenu;
         this.game = game;
         this.lobbyArrival = lobbyArrival;
     }
 
     @EventHandler
     public void onDrop(PlayerDropItemEvent event) {
-        if (!event.getPlayer().isOp() && book.isMenuBook(event.getItemDrop().getItemStack())) {
+        ItemStack dropped = event.getItemDrop().getItemStack();
+        if (!event.getPlayer().isOp() && (book.isMenuBook(dropped) || SettingsItem.isSettingsItem(dropped))) {
             event.setCancelled(true);
         }
     }
@@ -57,11 +64,15 @@ public final class PlayerListener implements Listener {
 
     @EventHandler
     public void onInteract(PlayerInteractEvent event) {
-        if ((event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK)
-                || !book.isMenuBook(event.getItem())) {
+        if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) {
             return;
         }
-        event.setCancelled(true);
-        menu.open(event.getPlayer());
+        if (book.isMenuBook(event.getItem())) {
+            event.setCancelled(true);
+            menu.open(event.getPlayer());
+        } else if (SettingsItem.isSettingsItem(event.getItem())) {
+            event.setCancelled(true);
+            settingsMenu.open(event.getPlayer());
+        }
     }
 }

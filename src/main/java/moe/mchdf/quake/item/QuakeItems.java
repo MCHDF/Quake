@@ -20,6 +20,7 @@ public final class QuakeItems {
     public static final String RAILGUN = "railgun";
     public static final String RAILGUN_TEST = "railgun_test";
     public static final String MENU_BOOK = "menu_book";
+    public static final String SETTINGS = "settings";
 
     // item_id 도입 전에 지급된 아이템을 알아보기 위한 예전 표시
     private static final NamespacedKey LEGACY_TEST_RAILGUN = new NamespacedKey("quake", "test_railgun");
