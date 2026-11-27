@@ -2,17 +2,21 @@ package moe.mchdf.quake;
 
 import java.util.Objects;
 import moe.mchdf.quake.command.QuakeCommand;
+import moe.mchdf.quake.command.SettingsCommand;
 import moe.mchdf.quake.database.DatabaseManager;
 import moe.mchdf.quake.database.GameWorldRepository;
 import moe.mchdf.quake.game.GameSession;
 import moe.mchdf.quake.listener.PlayerListener;
 import moe.mchdf.quake.menu.GameChatNotifier;
+import moe.mchdf.quake.menu.LobbyItems;
 import moe.mchdf.quake.menu.MenuBook;
 import moe.mchdf.quake.menu.MinigameMenu;
+import moe.mchdf.quake.menu.SettingsMenu;
 import moe.mchdf.quake.menu.WorldDeleteMenu;
 import moe.mchdf.quake.menu.WorldTeleportMenu;
 import moe.mchdf.quake.mod.ModHandshake;
 import moe.mchdf.quake.mod.ModHitMarker;
+import moe.mchdf.quake.mod.ModSettingsScreen;
 import moe.mchdf.quake.mod.ModSidebar;
 import moe.mchdf.quake.scoreboard.PlayerBoards;
 import moe.mchdf.quake.scoreboard.ServerSidebar;
@@ -43,10 +47,11 @@ public final class Quake extends JavaPlugin {
         gameWorld.loadAll();
         LobbyWorldManager lobby = gameWorld.lobby();
         MenuBook book = new MenuBook();
-        LobbyArrival lobbyArrival = new LobbyArrival(lobby, book);
+        LobbyItems lobbyItems = new LobbyItems(book);
+        LobbyArrival lobbyArrival = new LobbyArrival(lobby, lobbyItems);
         playerBoards = new PlayerBoards();
         getServer().getPluginManager().registerEvents(playerBoards, this);
-        game = new GameSession(this, book, gameWorld, lobbyArrival, playerBoards);
+        game = new GameSession(this, lobbyItems, gameWorld, lobbyArrival, playerBoards);
         game.addListener(new GameChatNotifier());
         modHandshake = new ModHandshake(this);
         modHandshake.register();
@@ -55,6 +60,9 @@ public final class Quake extends JavaPlugin {
         ModHitMarker modHitMarker = new ModHitMarker(this, modHandshake);
         modHitMarker.register();
         game.addListener(modHitMarker);
+        ModSettingsScreen modSettingsScreen = new ModSettingsScreen(this, modHandshake);
+        modSettingsScreen.register();
+        SettingsMenu settingsMenu = new SettingsMenu(modSettingsScreen);
         ServerSidebar.addDefaults(getConfig());
         saveConfig();
         ServerSidebar sidebar = new ServerSidebar(game, playerBoards, modSidebar, getConfig());
@@ -69,13 +77,16 @@ public final class Quake extends JavaPlugin {
         QuakeCommand executor = new QuakeCommand(this, book, game, gameWorld, worldDeleteMenu, worldTeleportMenu);
         command.setExecutor(executor);
         command.setTabCompleter(executor);
+        Objects.requireNonNull(getCommand("settings"), "settings command is missing from plugin.yml")
+                .setExecutor(new SettingsCommand(settingsMenu));
         RailGunWeapon railGunWeapon = new RailGunWeapon(this, game.getGameTeams(), modHitMarker);
-        getServer().getPluginManager().registerEvents(new PlayerListener(book, menu, game, lobbyArrival), this);
+        getServer().getPluginManager().registerEvents(new PlayerListener(book, menu, settingsMenu, game, lobbyArrival), this);
+        getServer().getPluginManager().registerEvents(settingsMenu, this);
         getServer().getPluginManager().registerEvents(worldDeleteMenu, this);
         getServer().getPluginManager().registerEvents(worldTeleportMenu, this);
         getServer().getPluginManager().registerEvents(game.getDoubleJump(), this);
         getServer().getPluginManager().registerEvents(new RailGunListener(railGunWeapon), this);
-        getServer().getOnlinePlayers().forEach(book::giveMenuBook);
+        getServer().getOnlinePlayers().forEach(lobbyItems::give);
         // Plugin startup logic
         getComponentLogger().info(
                 Component.text("MCHDF Quake 플러그인이 활성화 되었습니다.", NamedTextColor.GREEN, TextDecoration.BOLD)

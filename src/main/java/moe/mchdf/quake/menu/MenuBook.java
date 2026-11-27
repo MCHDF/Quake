@@ -10,6 +10,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 public final class MenuBook {
+    /** 핫바 첫 칸. 차 있으면 빈 칸에 넣는다. */
+    public static final int SLOT = 0;
+
     public void giveMenuBook(Player player) {
         giveMenuBook(player, false);
     }
@@ -23,7 +26,7 @@ public final class MenuBook {
                 return;
             }
         }
-        int slot = player.getInventory().firstEmpty();
+        int slot = player.getInventory().getItem(SLOT) == null ? SLOT : player.getInventory().firstEmpty();
         if (slot == -1) {
             player.sendMessage(Component.text(notify
                     ? "미니게임 책을 받을 공간이 없습니다. 인벤토리를 비우고 명령어를 다시 실행해 주세요."

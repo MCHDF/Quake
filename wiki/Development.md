@@ -12,8 +12,11 @@
 | 경로 | 역할 |
 | --- | --- |
 | `menu/MinigameMenu` | 참여 Dialog 화면과 버튼 처리 |
-| `menu/MenuBook` | 메뉴 책 생성·지급·식별 |
-| `listener/PlayerListener` | 접속·퇴장·책 사용·드롭 이벤트 |
+| `menu/MenuBook` | 메뉴 책 생성·지급(핫바 첫 칸)·식별 |
+| `menu/LobbyItems` | 로비 아이템(메뉴 책, 설정 아이템) 함께 지급·회수. 게임 시작 시 회수, 로비 복귀 시 지급 |
+| `item/SettingsItem` | 설정 아이템(회복 나침반, 핫바 맨 끝 칸) 생성·지급·식별 |
+| `menu/SettingsMenu` | 내 설정 화면. 모드 사용자는 `ModSettingsScreen`으로 모드 화면을, 그 외에는 상자형 GUI를 연다 |
+| `listener/PlayerListener` | 접속·퇴장·책과 설정 아이템 사용·드롭 이벤트 |
 | `combat/HitZones` | 맞은 지점 높이로 머리·몸통 판정. 서 있거나 웅크린 자세에서 눈 높이 0.12블록 아래부터 머리. 누운 자세는 항상 몸통. 무기와 분리되어 있어 다른 기능에서도 사용 |
 | `weapon/RailGunWeapon` | 레일건 발사·빔·효과음·명중 처리. 플레이어 히트박스를 사방 0.1블록(`HIT_MARGIN`)만 늘려 판정. 테스트 레일건은 맞은 부위(헤드샷·몸통)를 액션바에 표시 |
 | `game/GameSession` | 참여 명단, 다음 게임 대기열, 상태 전환, 시작·종료 |
@@ -28,10 +31,12 @@
 | `scoreboard/SidebarLines` | 로비·게임 사이드바 내용(문구, 줄 형태, 강조색) |
 | `scoreboard/SidebarRow` | 사이드바 줄 형태: 구분선, 글자, 값(이름·값), 막대(이름·값·비율). 바닐라용 글자 한 줄로도 변환 |
 | `command/QuakeCommand` | 관리자 명령어 |
+| `command/SettingsCommand` | `/settings`(`/설정`): 모든 플레이어가 내 설정 화면 열기 |
 | `database/DatabaseManager` | SQLite 연결 풀 관리 |
 | `database/GameWorldRepository` | 게임 월드 등록 목록 저장·조회·삭제 |
 | `mod/ModHandshake` | 모드 버전 확인, 모드 사용자 기록, 수락 시 `addAcceptListener` 콜백 호출 |
 | `mod/ModSidebar` | 모드 사용자에게 사이드바 제목·강조색·줄 형태를 `quake:sidebar` 패킷으로 전송(글자는 텍스트 컴포넌트 JSON). 바뀌었을 때만 전송 |
+| `mod/ModSettingsScreen` | 모드 사용자에게 `quake:open_settings` 패킷(내용 없음)을 보내 모드 설정 화면을 열게 함. 모드가 없거나 채널 등록 전이면 보내지 않음 |
 | `mod/ModHitMarker` | 득점 이벤트를 구독해 쏜 사람에게 맞은 부위를 `quake:hit` 패킷(byte 1개, 0 몸통·1 머리)으로 전송. 판정은 서버가 하고 모드는 히트마커만 그림. 테스트 레일건도 전송 |
 | `Quake` | 구성 요소 생성·등록 및 종료 정리 |
 
