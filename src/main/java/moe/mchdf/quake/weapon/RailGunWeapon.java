@@ -28,6 +28,11 @@ import org.joml.Vector3f;
 public final class RailGunWeapon {
     private static final double RANGE = 50.0D;
     private static final int COOLDOWN_TICKS = 36;
+    /**
+     * 플레이어 히트박스(가로 0.6, 세로 1.8블록)를 사방으로 늘리는 판정 여유 (블록).
+     * 0.1이면 가로 0.8, 세로 2.0블록. 움직이는 상대를 맞힐 때 생기는 핑 지연을 조금 봐주는 정도로만 둔다.
+     */
+    static final double HIT_MARGIN = 0.1D;
 
     // 빔 외형: 밝은 심 + 반투명 바깥층
     private record BeamStyle(Material core, Material glow) {
@@ -98,7 +103,7 @@ public final class RailGunWeapon {
                 RANGE,
                 FluidCollisionMode.NEVER,
                 false,
-                0.4D,
+                HIT_MARGIN,
                 entity -> entity != shooter && entity instanceof Player
         );
 

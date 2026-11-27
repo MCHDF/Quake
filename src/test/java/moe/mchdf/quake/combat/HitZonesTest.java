@@ -31,7 +31,7 @@ class HitZonesTest {
     @Test
     void hitAboveHeadWithinRayMarginIsHeadshot() {
         // raySize 여유 때문에 머리 위(키 1.8 초과)에 찍힌 판정
-        assertEquals(HitZone.HEAD, HitZones.of(Pose.STANDING, STANDING_EYE, FEET + 2.1D));
+        assertEquals(HitZone.HEAD, HitZones.of(Pose.STANDING, STANDING_EYE, FEET + 1.9D));
     }
 
     @Test
