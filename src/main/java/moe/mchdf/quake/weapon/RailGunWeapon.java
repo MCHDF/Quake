@@ -2,7 +2,11 @@ package moe.mchdf.quake.weapon;
 
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import moe.mchdf.quake.combat.HitZone;
+import moe.mchdf.quake.combat.HitZones;
 import moe.mchdf.quake.game.GameTeams;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import moe.mchdf.quake.item.RailGunItem;
 import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
@@ -73,7 +77,7 @@ public final class RailGunWeapon {
         return GAME_BEAM;
     }
 
-    /** 테스트용 레일건: 빔과 효과음만 나고 팀/점수는 건드리지 않는다. */
+    /** 테스트용 레일건: 빔과 효과음만 나고 팀/점수는 건드리지 않는다. 맞히면 맞은 부위를 액션바에 표시한다. */
     public void fireTest(Player shooter) {
         fire(shooter, TEST_BEAM, false);
     }
@@ -117,6 +121,7 @@ public final class RailGunWeapon {
         Location impact = end.toLocation(world);
         if (!scoring) {
             playHitSound(shooter, impact);
+            showHitZone(shooter, HitZones.of(hitPlayer, end));
             return;
         }
         if (!gameTeams.areEnemies(shooter, hitPlayer)) {
@@ -125,6 +130,13 @@ public final class RailGunWeapon {
 
         playHitSound(shooter, impact);
         gameTeams.awardPoint(shooter, hitPlayer);
+    }
+
+    /** 테스트 레일건으로 맞힌 부위를 액션바에 보여 준다. 헤드샷 판정을 게임 안에서 확인하는 용도 */
+    private static void showHitZone(Player shooter, HitZone zone) {
+        shooter.sendActionBar(zone == HitZone.HEAD
+                ? Component.text("헤드샷", NamedTextColor.RED)
+                : Component.text("몸통", NamedTextColor.WHITE));
     }
 
     private static Vector muzzle(Location eye, Vector direction) {
