@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import moe.mchdf.quake.combat.HitZone;
 import moe.mchdf.quake.menu.MenuBook;
 import moe.mchdf.quake.item.RailGunItem;
 import moe.mchdf.quake.world.GameWorld;
@@ -517,7 +518,7 @@ class GameSessionTest {
         verify(gameTeams).setPointScoredListener(pointScored.capture());
         when(gameTeams.getTeamScore("RED")).thenReturn(3);
         when(gameTeams.getTeamScore("BLUE")).thenReturn(2);
-        pointScored.getValue().accept(new GameEvent.PointScored(first, "RED", second, "BLUE", List.of()));
+        pointScored.getValue().accept(new GameEvent.PointScored(first, "RED", second, "BLUE", HitZone.BODY, List.of()));
         var plainText = PlainTextComponentSerializer.plainText();
         assertEquals("RED 3  |  BLUE 2  |  목표 5점  |  00:03",
                 plainText.serialize(bar.getValue().name()));

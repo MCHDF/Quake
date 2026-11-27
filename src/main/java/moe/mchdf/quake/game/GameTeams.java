@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
+import moe.mchdf.quake.combat.HitZone;
 import moe.mchdf.quake.scoreboard.PlayerBoards;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -113,7 +114,8 @@ public final class GameTeams {
         pointScoredListener = listener;
     }
 
-    public void awardPoint(Player shooter, Player target) {
+    /** 명중 1회에 1점. {@code zone}은 득점 이벤트에 실어 보낼 맞은 부위이며 점수에는 영향이 없다. */
+    public void awardPoint(Player shooter, Player target, HitZone zone) {
         String team = getTeamOf(shooter);
         String targetTeam = getTeamOf(target);
         if (team == null || target == null || targetTeam == null) {
@@ -130,7 +132,7 @@ public final class GameTeams {
         }
         updateTabListFooter();
         if (pointScoredListener != null) {
-            pointScoredListener.accept(new GameEvent.PointScored(shooter, team, target, targetTeam,
+            pointScoredListener.accept(new GameEvent.PointScored(shooter, team, target, targetTeam, zone,
                     List.copyOf(playerTeams.keySet())));
         }
 

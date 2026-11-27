@@ -32,6 +32,7 @@
 | `database/GameWorldRepository` | 게임 월드 등록 목록 저장·조회·삭제 |
 | `mod/ModHandshake` | 모드 버전 확인, 모드 사용자 기록, 수락 시 `addAcceptListener` 콜백 호출 |
 | `mod/ModSidebar` | 모드 사용자에게 사이드바 제목·강조색·줄 형태를 `quake:sidebar` 패킷으로 전송(글자는 텍스트 컴포넌트 JSON). 바뀌었을 때만 전송 |
+| `mod/ModHitMarker` | 득점 이벤트를 구독해 쏜 사람에게 맞은 부위를 `quake:hit` 패킷(byte 1개, 0 몸통·1 머리)으로 전송. 판정은 서버가 하고 모드는 히트마커만 그림. 테스트 레일건도 전송 |
 | `Quake` | 구성 요소 생성·등록 및 종료 정리 |
 
 ## 스코어보드

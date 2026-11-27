@@ -2,6 +2,7 @@ package moe.mchdf.quake.game;
 
 import java.util.List;
 import java.util.UUID;
+import moe.mchdf.quake.combat.HitZone;
 import org.bukkit.entity.Player;
 
 /**
@@ -36,9 +37,9 @@ public sealed interface GameEvent {
     record TeamAssigned(Player player, String team) implements GameEvent {
     }
 
-    /** 득점(명중). {@code recipients}는 알림을 받을 이번 게임 참가자 */
-    record PointScored(Player shooter, String shooterTeam, Player target, String targetTeam, List<UUID> recipients)
-            implements GameEvent {
+    /** 득점(명중). {@code zone}은 맞은 부위(헤드샷이어도 점수는 같다), {@code recipients}는 알림을 받을 이번 게임 참가자 */
+    record PointScored(Player shooter, String shooterTeam, Player target, String targetTeam, HitZone zone,
+                       List<UUID> recipients) implements GameEvent {
     }
 
     /** 게임 월드 이동에 실패해 다음 월드로 넘어감. {@code applicants}는 영향을 받은 참여 대기자 */
