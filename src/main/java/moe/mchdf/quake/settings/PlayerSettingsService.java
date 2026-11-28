@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
 import java.util.function.UnaryOperator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -26,7 +25,7 @@ public final class PlayerSettingsService implements Listener {
     private final PlayerSettingsRepository repository;
     private final Logger logger;
     private final Map<UUID, PlayerSettings> cache = new ConcurrentHashMap<>();
-    private final List<Consumer<Player>> changeListeners = new ArrayList<>();
+    private final List<PlayerSettingsListener> changeListeners = new ArrayList<>();
 
     public PlayerSettingsService(PlayerSettingsRepository repository, Logger logger) {
         this.repository = repository;
@@ -39,7 +38,8 @@ public final class PlayerSettingsService implements Listener {
 
     /** 설정을 바꿔 저장하고, 바로 적용해야 하는 쪽(사이드바 등)에 알린다. */
     public PlayerSettings update(Player player, UnaryOperator<PlayerSettings> change) {
-        PlayerSettings updated = change.apply(get(player));
+        PlayerSettings before = get(player);
+        PlayerSettings updated = change.apply(before);
         cache.put(player.getUniqueId(), updated);
         try {
             repository.save(player.getUniqueId(), updated);
@@ -47,13 +47,13 @@ public final class PlayerSettingsService implements Listener {
             // 저장에 실패해도 이번 접속 동안은 바뀐 설정을 쓴다.
             logger.log(Level.WARNING, exception.getMessage(), exception);
         }
-        for (Consumer<Player> listener : changeListeners) {
-            listener.accept(player);
+        for (PlayerSettingsListener listener : changeListeners) {
+            listener.changed(player, before, updated);
         }
         return updated;
     }
 
-    public void addChangeListener(Consumer<Player> listener) {
+    public void addChangeListener(PlayerSettingsListener listener) {
         changeListeners.add(listener);
     }
 

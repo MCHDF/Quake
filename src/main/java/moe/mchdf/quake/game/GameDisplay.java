@@ -1,9 +1,7 @@
 package moe.mchdf.quake.game;
 
 import java.time.Duration;
-import java.util.Collection;
 import java.util.Locale;
-import java.util.UUID;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
@@ -11,7 +9,6 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.title.Title;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 /** 보스바, 카운트다운 효과음, 결과 타이틀을 담당한다. 게임 이벤트를 구독해 화면만 갱신한다. */
@@ -35,7 +32,7 @@ final class GameDisplay implements GameListener {
                 }
             }
             case GameEvent.Countdown e ->
-                    countdown(e.worldName(), e.remainingSeconds(), e.totalSeconds(), e.participants());
+                    countdown(e.worldName(), e.remainingSeconds(), e.totalSeconds());
             case GameEvent.Running e ->
                     running(e.remainingSeconds(), e.totalSeconds(), e.redScore(), e.blueScore(), e.targetScore());
             case GameEvent.GameFinished e -> {
@@ -70,19 +67,11 @@ final class GameDisplay implements GameListener {
         bar.color(BossBar.Color.GREEN);
     }
 
-    void countdown(String worldName, int remaining, int total, Collection<UUID> participants) {
+    void countdown(String worldName, int remaining, int total) {
         bar.name(boldExceptBars(worldName + " | 게임을 시작합니다! | 시작까지 " + remaining + "초", null));
         bar.progress(remaining / (float) total);
         bar.color(remaining <= 10 ? BossBar.Color.RED : BossBar.Color.YELLOW);
-        if (remaining <= 5) {
-            float pitch = remaining == 0 ? 2.0f : 1.0f;
-            for (UUID playerId : participants) {
-                Player player = Bukkit.getPlayer(playerId);
-                if (player != null) {
-                    player.playSound(player.getLocation(), "minecraft:block.note_block.pling", 1.0f, pitch);
-                }
-            }
-        }
+        // 카운트다운 소리는 플레이어별 음량을 따르도록 CountdownSound가 재생한다.
     }
 
     void running(int remaining, int total, int redScore, int blueScore, int targetScore) {
