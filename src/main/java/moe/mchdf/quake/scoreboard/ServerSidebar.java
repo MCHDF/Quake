@@ -3,6 +3,7 @@ package moe.mchdf.quake.scoreboard;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Predicate;
 import moe.mchdf.quake.game.GameEvent;
 import moe.mchdf.quake.game.GameListener;
 import moe.mchdf.quake.game.GameSession;
@@ -37,15 +38,19 @@ public final class ServerSidebar implements GameListener, Listener {
     private final GameSession game;
     private final PlayerBoards boards;
     private final ModSidebar modSidebar;
+    private final Predicate<Player> enabled;
     private final Map<UUID, Sidebar> sidebars = new HashMap<>();
     private final Component title;
     private final Component address;
     private GameEvent.Running lastRunning;
 
-    public ServerSidebar(GameSession game, PlayerBoards boards, ModSidebar modSidebar, FileConfiguration config) {
+    /** @param enabled 사이드바를 보여 줄 플레이어인지 (개인 설정에서 끌 수 있다) */
+    public ServerSidebar(GameSession game, PlayerBoards boards, ModSidebar modSidebar, FileConfiguration config,
+                         Predicate<Player> enabled) {
         this.game = game;
         this.boards = boards;
         this.modSidebar = modSidebar;
+        this.enabled = enabled;
         MiniMessage miniMessage = MiniMessage.miniMessage();
         title = miniMessage.deserialize(config.getString(TITLE_KEY, DEFAULT_TITLE));
         String addressText = config.getString(ADDRESS_KEY, "");
@@ -86,6 +91,11 @@ public final class ServerSidebar implements GameListener, Listener {
         refresh(player);
     }
 
+    /** 개인 설정이 바뀌면 호출한다. 사이드바를 껐거나 켰을 때 1초 갱신을 기다리지 않고 바로 반영한다. */
+    public void onSettingsChanged(Player player) {
+        refresh(player);
+    }
+
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         sidebars.remove(event.getPlayer().getUniqueId());
@@ -101,11 +111,15 @@ public final class ServerSidebar implements GameListener, Listener {
         if (!player.isOnline()) {
             return;
         }
-        if (modSidebar.usesModUi(player)) {
-            Sidebar removed = sidebars.remove(player.getUniqueId());
-            if (removed != null) {
-                removed.remove();
+        if (!enabled.test(player)) {
+            removeVanilla(player);
+            if (modSidebar.usesModUi(player)) {
+                modSidebar.hide(player);
             }
+            return;
+        }
+        if (modSidebar.usesModUi(player)) {
+            removeVanilla(player);
             modSidebar.show(player, title, contentFor(player));
             return;
         }
@@ -116,6 +130,13 @@ public final class ServerSidebar implements GameListener, Listener {
             sidebars.put(player.getUniqueId(), sidebar);
         }
         sidebar.update(title, contentFor(player).vanillaLines());
+    }
+
+    private void removeVanilla(Player player) {
+        Sidebar removed = sidebars.remove(player.getUniqueId());
+        if (removed != null) {
+            removed.remove();
+        }
     }
 
     private SidebarContent contentFor(Player player) {

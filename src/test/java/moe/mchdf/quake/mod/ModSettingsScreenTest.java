@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.Set;
 import moe.mchdf.quake.menu.SettingsMenu;
+import moe.mchdf.quake.settings.PlayerSettingsService;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.junit.jupiter.api.BeforeEach;
@@ -64,7 +65,7 @@ class ModSettingsScreenTest {
     void settingsMenuDoesNotOpenChestForModUser() {
         Player modUser = player(true, true);
 
-        new SettingsMenu(screen).open(modUser);
+        new SettingsMenu(screen, mock(PlayerSettingsService.class)).open(modUser);
 
         verify(modUser, never()).openInventory(any(org.bukkit.inventory.Inventory.class));
     }

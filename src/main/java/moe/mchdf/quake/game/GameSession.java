@@ -12,6 +12,7 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 import moe.mchdf.quake.scoreboard.PlayerBoards;
 import moe.mchdf.quake.item.RailGunItem;
 import moe.mchdf.quake.menu.LobbyItems;
@@ -40,6 +41,7 @@ public final class GameSession {
     private final GameTimer timer;
     private final GameSettings settings;
     private GameState state = GameState.WAITING;
+    private Predicate<Player> autoRejoin = player -> true;
 
     public GameSession(JavaPlugin plugin, LobbyItems lobbyItems, GameWorld worlds, LobbyArrival lobbyArrival,
                        PlayerBoards boards) {
@@ -51,6 +53,11 @@ public final class GameSession {
         settings = new GameSettings(plugin);
         listeners.add(new GameDisplay());
         rotateWorld();
+    }
+
+    /** 게임이 끝났을 때 다음 게임에 자동으로 다시 참여시킬 플레이어인지 (개인 설정). 기본은 모두 참여 */
+    public void setAutoRejoin(Predicate<Player> autoRejoin) {
+        this.autoRejoin = autoRejoin;
     }
 
     /** 게임 이벤트 구독자 등록 (채팅 알림, 모드 패킷 전송 등) */
@@ -348,7 +355,7 @@ public final class GameSession {
                 publish(new GameEvent.PlayerHidden(player));
                 lobbyArrival.resetAndSend(player);
                 publish(new GameEvent.GameFinished(player, gameTeams.getTeamOf(player), redScore, blueScore, cancelled));
-                if (player.isOnline()) {
+                if (player.isOnline() && autoRejoin.test(player)) {
                     nextGameQueue.add(playerId);
                 }
             }
