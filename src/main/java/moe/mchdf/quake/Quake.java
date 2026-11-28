@@ -23,6 +23,9 @@ import moe.mchdf.quake.scoreboard.PlayerBoards;
 import moe.mchdf.quake.scoreboard.ServerSidebar;
 import moe.mchdf.quake.settings.PlayerSettingsRepository;
 import moe.mchdf.quake.settings.PlayerSettingsService;
+import moe.mchdf.quake.sound.CountdownSound;
+import moe.mchdf.quake.sound.QuakeSounds;
+import moe.mchdf.quake.sound.SoundPreview;
 import moe.mchdf.quake.world.GameWorld;
 import moe.mchdf.quake.world.GameWorldListener;
 import moe.mchdf.quake.world.LobbyArrival;
@@ -60,6 +63,9 @@ public final class Quake extends JavaPlugin {
         getServer().getPluginManager().registerEvents(playerBoards, this);
         game = new GameSession(this, lobbyItems, gameWorld, lobbyArrival, playerBoards);
         game.setAutoRejoin(player -> playerSettings.get(player).autoRejoin());
+        QuakeSounds sounds = new QuakeSounds(this, playerSettings::get);
+        game.addListener(new CountdownSound(sounds));
+        playerSettings.addChangeListener(new SoundPreview(sounds));
         game.addListener(new GameChatNotifier());
         modHandshake = new ModHandshake(this);
         modHandshake.register();
@@ -77,7 +83,7 @@ public final class Quake extends JavaPlugin {
         ServerSidebar sidebar = new ServerSidebar(game, playerBoards, modSidebar, getConfig(),
                 player -> playerSettings.get(player).sidebar());
         modHandshake.addAcceptListener(sidebar::onModAccepted);
-        playerSettings.addChangeListener(sidebar::onSettingsChanged);
+        playerSettings.addChangeListener((player, before, after) -> sidebar.onSettingsChanged(player));
         game.addListener(sidebar);
         getServer().getPluginManager().registerEvents(sidebar, this);
         sidebar.start(this);
@@ -90,7 +96,7 @@ public final class Quake extends JavaPlugin {
         command.setTabCompleter(executor);
         Objects.requireNonNull(getCommand("settings"), "settings command is missing from plugin.yml")
                 .setExecutor(new SettingsCommand(settingsMenu));
-        RailGunWeapon railGunWeapon = new RailGunWeapon(this, game.getGameTeams(), modHitMarker);
+        RailGunWeapon railGunWeapon = new RailGunWeapon(this, game.getGameTeams(), modHitMarker, sounds);
         getServer().getPluginManager().registerEvents(new PlayerListener(book, menu, settingsMenu, game, lobbyArrival), this);
         getServer().getPluginManager().registerEvents(settingsMenu, this);
         getServer().getPluginManager().registerEvents(worldDeleteMenu, this);

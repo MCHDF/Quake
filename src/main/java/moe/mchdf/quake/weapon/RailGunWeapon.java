@@ -1,7 +1,5 @@
 package moe.mchdf.quake.weapon;
 
-import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 import moe.mchdf.quake.combat.HitZone;
 import moe.mchdf.quake.combat.HitZones;
 import moe.mchdf.quake.game.GameTeams;
@@ -9,11 +7,10 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import moe.mchdf.quake.item.RailGunItem;
 import moe.mchdf.quake.mod.ModHitMarker;
+import moe.mchdf.quake.sound.QuakeSounds;
 import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.Sound;
-import org.bukkit.SoundCategory;
 import org.bukkit.World;
 import org.bukkit.entity.BlockDisplay;
 import org.bukkit.entity.Display;
@@ -62,11 +59,13 @@ public final class RailGunWeapon {
     private final JavaPlugin plugin;
     private final GameTeams gameTeams;
     private final ModHitMarker hitMarker;
+    private final QuakeSounds sounds;
 
-    public RailGunWeapon(JavaPlugin plugin, GameTeams gameTeams, ModHitMarker hitMarker) {
+    public RailGunWeapon(JavaPlugin plugin, GameTeams gameTeams, ModHitMarker hitMarker, QuakeSounds sounds) {
         this.plugin = plugin;
         this.gameTeams = gameTeams;
         this.hitMarker = hitMarker;
+        this.sounds = sounds;
     }
 
     /** 미니게임용 레일건: 적을 맞히면 득점한다. */
@@ -118,7 +117,7 @@ public final class RailGunWeapon {
                 ? result.getHitPosition()
                 : eye.toVector().add(direction.clone().multiply(RANGE));
         drawBeam(world, muzzle(eye, direction), end, style);
-        playLaunchSound(shooter);
+        sounds.launch(shooter);
 
         if (result == null || result.getHitBlock() != null) {
             return;
@@ -153,6 +152,11 @@ public final class RailGunWeapon {
                 : Component.text("몸통", NamedTextColor.WHITE));
     }
 
+    private void playHitSound(Player shooter, Location impact) {
+        sounds.hitConfirm(shooter);
+        sounds.impact(impact);
+    }
+
     private static Vector muzzle(Location eye, Vector direction) {
         Vector forward = direction.clone().normalize();
         Vector right = forward.clone().crossProduct(new Vector(0, 1, 0));
@@ -166,38 +170,6 @@ public final class RailGunWeapon {
                 .add(forward.multiply(MUZZLE_FORWARD))
                 .add(right.multiply(MUZZLE_RIGHT))
                 .subtract(up.multiply(MUZZLE_DOWN));
-    }
-
-    /*
-     * 명중음 구성
-     *  [쏜 사람에게만] 히트마커 — 거리와 상관없이 항상 들림
-     *   - 화살 명중음 : 바닐라 활 명중 "띵"
-     *   - 종 노트블록 : 높은 피치로 얹어 맑고 또렷한 확인음
-     *  [명중 지점] 전기 충돌 — 주변 플레이어와 맞은 사람이 들음
-     *   - 번개 충돌음   : 빔이 꽂히는 전기 "파직"
-     *   - 유리 깨짐     : 높은 피치로 날카로운 파편감
-     *   - 불 꺼지는 소리 : 맞은 자리가 "치익" 하고 타는 잔향
-     */
-    private static final List<SoundLayer> HIT_CONFIRM_SOUND = List.of(
-            new SoundLayer(Sound.ENTITY_ARROW_HIT_PLAYER, 1.0F, 0.9F, 0L),
-            new SoundLayer(Sound.BLOCK_NOTE_BLOCK_BELL, 0.5F, 2.0F, 0L)
-    );
-
-    private static final List<SoundLayer> HIT_IMPACT_SOUND = List.of(
-            new SoundLayer(Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.6F, 1.8F, 0L),
-            new SoundLayer(Sound.BLOCK_GLASS_BREAK, 0.7F, 1.8F, 0L),
-            new SoundLayer(Sound.BLOCK_FIRE_EXTINGUISH, 0.4F, 1.6F, 0L)
-    );
-
-    private static void playHitSound(Player shooter, Location impact) {
-        float jitter = randomJitter();
-        for (SoundLayer layer : HIT_CONFIRM_SOUND) {
-            shooter.playSound(shooter.getLocation(), layer.sound(), SoundCategory.PLAYERS,
-                    layer.volume(), clampPitch(layer.pitch() + jitter));
-        }
-        for (SoundLayer layer : HIT_IMPACT_SOUND) {
-            playLayer(impact, layer, clampPitch(layer.pitch() + jitter));
-        }
     }
 
     private void drawBeam(World world, Vector start, Vector end, BeamStyle style) {
@@ -248,56 +220,5 @@ public final class RailGunWeapon {
                 new Vector3f(width, width, length),
                 new Quaternionf()
         );
-    }
-
-    /**
-     * 발사음 한 겹. delayTicks 만큼 늦게 재생해 "충전 → 발사 → 잔향" 순서를 만든다.
-     */
-    private record SoundLayer(Sound sound, float volume, float pitch, long delayTicks) {
-    }
-
-    /*
-     * 레일건 발사음 구성
-     *  1. 전자 충전음  : 비콘 효과 선택음을 최고 피치로 → 짧고 높은 "삐잉" 하는 전기음
-     *  2. 초음속 파열음 : 워든 음파 공격을 높은 피치로 → 묵직한 저음이 빠진 날카로운 빔 발사음
-     *  3. 방전 스냅    : 번개 충돌음을 최고 피치로, 작게 → 전기가 튀는 "탁" 소리
-     *  4. 금속 잔향    : 자수정 공명음 → 레일이 울리는 듯한 맑은 금속성 꼬리
-     */
-    private static final List<SoundLayer> LAUNCH_SOUND = List.of(
-            new SoundLayer(Sound.BLOCK_BEACON_POWER_SELECT, 0.6F, 2.0F, 0L),
-            new SoundLayer(Sound.ENTITY_WARDEN_SONIC_BOOM, 0.7F, 1.8F, 0L),
-            new SoundLayer(Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.35F, 2.0F, 0L),
-            new SoundLayer(Sound.BLOCK_AMETHYST_BLOCK_RESONATE, 0.8F, 1.6F, 2L)
-    );
-
-    // 매 발사마다 피치를 살짝 흔들어 같은 소리가 반복되는 느낌을 줄임
-    private static final float PITCH_JITTER = 0.05F;
-
-    private void playLaunchSound(Player shooter) {
-        Location loc = shooter.getEyeLocation();
-        float jitter = (ThreadLocalRandom.current().nextFloat() * 2.0F - 1.0F) * PITCH_JITTER;
-        for (SoundLayer layer : LAUNCH_SOUND) {
-            float pitch = Math.clamp(layer.pitch() + jitter, 0.5F, 2.0F);
-            if (layer.delayTicks() <= 0L) {
-                playLayer(loc, layer, pitch);
-            } else {
-                Location delayedLoc = loc.clone();
-                plugin.getServer().getScheduler().runTaskLater(plugin,
-                        () -> playLayer(delayedLoc, layer, pitch), layer.delayTicks());
-            }
-        }
-    }
-
-    private static float randomJitter() {
-        return (ThreadLocalRandom.current().nextFloat() * 2.0F - 1.0F) * PITCH_JITTER;
-    }
-
-    // 마인크래프트 사운드 피치는 0.5~2.0 범위만 유효
-    private static float clampPitch(float pitch) {
-        return Math.max(0.5F, Math.min(2.0F, pitch));
-    }
-
-    private static void playLayer(Location loc, SoundLayer layer, float pitch) {
-        loc.getWorld().playSound(loc, layer.sound(), SoundCategory.PLAYERS, layer.volume(), pitch);
     }
 }

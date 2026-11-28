@@ -17,6 +17,8 @@ import java.util.logging.Logger;
 import moe.mchdf.quake.settings.PlayerSettings;
 import moe.mchdf.quake.settings.PlayerSettingsRepository;
 import moe.mchdf.quake.settings.PlayerSettingsService;
+import moe.mchdf.quake.settings.SoundLevel;
+import moe.mchdf.quake.settings.SoundType;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,7 +40,7 @@ class ModPlayerSettingsTest {
         repository = mock(PlayerSettingsRepository.class);
         settings = new PlayerSettingsService(repository, Logger.getAnonymousLogger());
         channel = new ModPlayerSettings(plugin, handshake, settings);
-        settings.addChangeListener(channel::send);
+        settings.addChangeListener((player, before, after) -> channel.send(player));
         modUser = mock(Player.class);
         when(modUser.getUniqueId()).thenReturn(UUID.randomUUID());
         when(handshake.hasMod(modUser)).thenReturn(true);
@@ -58,13 +60,15 @@ class ModPlayerSettingsTest {
     void encodesEveryItemAsNameValuePairs() throws Exception {
         var expected = new ByteArrayOutputStream();
         try (var out = new DataOutputStream(expected)) {
-            out.writeByte(2);
-            ModSidebar.writeString(out, "sidebar");
-            ModSidebar.writeString(out, "false");
-            ModSidebar.writeString(out, "auto_rejoin");
-            ModSidebar.writeString(out, "true");
+            out.writeByte(7);
+            for (String text : new String[] {"sidebar", "false", "auto_rejoin", "true",
+                    "sound.hit", "off", "sound.kill", "high", "sound.own_shot", "high",
+                    "sound.other_shot", "high", "sound.countdown", "high"}) {
+                ModSidebar.writeString(out, text);
+            }
         }
-        assertArrayEquals(expected.toByteArray(), ModPlayerSettings.encode(new PlayerSettings(false, true)));
+        assertArrayEquals(expected.toByteArray(), ModPlayerSettings.encode(
+                new PlayerSettings(false, true).withSound(SoundType.HIT_CONFIRM, SoundLevel.OFF)));
     }
 
     @Test
@@ -87,6 +91,14 @@ class ModPlayerSettingsTest {
         verify(repository, never()).save(any(), any());
         verify(modUser, org.mockito.Mockito.times(2)).sendPluginMessage(plugin, ModProtocol.PLAYER_SETTINGS_CHANNEL,
                 ModPlayerSettings.encode(PlayerSettings.DEFAULTS));
+    }
+
+    @Test
+    void modCanChangeSoundLevel() throws Exception {
+        channel.onPluginMessageReceived(ModProtocol.PLAYER_SETTINGS_CHANNEL, modUser, change("sound.countdown", "low"));
+        channel.onPluginMessageReceived(ModProtocol.PLAYER_SETTINGS_CHANNEL, modUser, change("sound.kill", "loud"));
+
+        assertEquals(PlayerSettings.DEFAULTS.withSound(SoundType.COUNTDOWN, SoundLevel.LOW), settings.get(modUser));
     }
 
     @Test

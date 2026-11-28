@@ -45,7 +45,7 @@ public final class ModPlayerSettings implements PluginMessageListener, Listener 
         messenger.registerOutgoingPluginChannel(plugin, ModProtocol.PLAYER_SETTINGS_CHANNEL);
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
         handshake.addAcceptListener(this::send);
-        settings.addChangeListener(this::send);
+        settings.addChangeListener((player, before, after) -> send(player));
     }
 
     /** 모드 사용자에게 현재 설정을 보낸다. 모드가 없거나 채널 등록 전이면 보내지 않는다(등록되면 그때 보냄). */
