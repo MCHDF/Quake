@@ -16,6 +16,7 @@ import moe.mchdf.quake.menu.WorldDeleteMenu;
 import moe.mchdf.quake.menu.WorldTeleportMenu;
 import moe.mchdf.quake.mod.ModHandshake;
 import moe.mchdf.quake.mod.ModHitMarker;
+import moe.mchdf.quake.mod.ModPlayerSettings;
 import moe.mchdf.quake.mod.ModSettingsScreen;
 import moe.mchdf.quake.mod.ModSidebar;
 import moe.mchdf.quake.scoreboard.PlayerBoards;
@@ -69,6 +70,7 @@ public final class Quake extends JavaPlugin {
         game.addListener(modHitMarker);
         ModSettingsScreen modSettingsScreen = new ModSettingsScreen(this, modHandshake);
         modSettingsScreen.register();
+        new ModPlayerSettings(this, modHandshake, playerSettings).register();
         SettingsMenu settingsMenu = new SettingsMenu(modSettingsScreen, playerSettings);
         ServerSidebar.addDefaults(getConfig());
         saveConfig();

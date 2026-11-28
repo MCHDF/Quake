@@ -2,6 +2,7 @@ package moe.mchdf.quake.settings;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 플레이어 한 명의 개인 설정. 모드 없이도 서버가 적용할 수 있는 항목만 둔다.
@@ -26,8 +27,22 @@ public record PlayerSettings(boolean sidebar, boolean autoRejoin) {
         return new PlayerSettings(sidebar, value);
     }
 
-    /** DB에 저장할 키-값 */
-    Map<String, String> values() {
+    /**
+     * 항목 하나를 문자열 값으로 바꾼다. 모드가 보낸 값처럼 밖에서 온 값을 받을 때 쓴다.
+     * 모르는 항목이거나 그 항목에 맞지 않는 값이면 비어 있다.
+     */
+    public Optional<PlayerSettings> with(String key, String value) {
+        Map<String, String> values = values();
+        if (!values.containsKey(key)) {
+            return Optional.empty();
+        }
+        values.put(key, value);
+        PlayerSettings changed = fromValues(values);
+        return value.equals(changed.values().get(key)) ? Optional.of(changed) : Optional.empty();
+    }
+
+    /** 저장하거나 모드에 보낼 키-값. 항목 이름은 모드와 같아야 한다. */
+    public Map<String, String> values() {
         Map<String, String> values = new LinkedHashMap<>();
         values.put(SIDEBAR, Boolean.toString(sidebar));
         values.put(AUTO_REJOIN, Boolean.toString(autoRejoin));
