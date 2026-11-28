@@ -28,6 +28,7 @@ import org.mockito.MockedStatic;
 
 class ServerSidebarTest {
     private final Set<UUID> modUsers = new HashSet<>();
+    private final Set<UUID> hidden = new HashSet<>();
     private MockedStatic<Bukkit> bukkit;
     private Player player;
     private Scoreboard board;
@@ -66,7 +67,8 @@ class ServerSidebarTest {
         when(modSidebar.usesModUi(any(Player.class))).thenAnswer(invocation ->
                 modUsers.contains(((Player) invocation.getArgument(0)).getUniqueId()));
 
-        sidebar = new ServerSidebar(game, boards, modSidebar, new YamlConfiguration());
+        sidebar = new ServerSidebar(game, boards, modSidebar, new YamlConfiguration(),
+                target -> !hidden.contains(target.getUniqueId()));
     }
 
     @AfterEach
@@ -106,5 +108,29 @@ class ServerSidebarTest {
         // 이후 1초 갱신에서도 다시 만들지 않는다.
         sidebar.refreshAll();
         verify(board, times(1)).registerNewObjective(anyString(), nullable(Criteria.class), any(Component.class));
+    }
+
+    @Test
+    void turningSidebarOffRemovesVanillaSidebarAndTurningOnBringsItBack() {
+        sidebar.refreshAll();
+        hidden.add(player.getUniqueId());
+
+        sidebar.onSettingsChanged(player);
+
+        verify(objective).unregister();
+        hidden.remove(player.getUniqueId());
+        sidebar.onSettingsChanged(player);
+        verify(board, times(2)).registerNewObjective(anyString(), nullable(Criteria.class), any(Component.class));
+    }
+
+    @Test
+    void turningSidebarOffHidesModPanel() {
+        modUsers.add(player.getUniqueId());
+        hidden.add(player.getUniqueId());
+
+        sidebar.refreshAll();
+
+        verify(modSidebar).hide(player);
+        verify(modSidebar, never()).show(any(), any(), any());
     }
 }

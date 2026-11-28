@@ -31,6 +31,7 @@ import org.bukkit.plugin.Plugin;
 public final class ModSidebar implements Listener {
     private final Plugin plugin;
     private final ModHandshake handshake;
+    private static final byte[] HIDDEN = encode(false, Component.empty(), new SidebarContent(null, List.of()));
     private final Map<UUID, byte[]> lastSent = new HashMap<>();
 
     public ModSidebar(Plugin plugin, ModHandshake handshake) {
@@ -52,13 +53,17 @@ public final class ModSidebar implements Listener {
         send(player, encode(true, title, content));
     }
 
+    /** 모드 화면의 사이드바를 숨긴다. 이미 숨겼으면 다시 보내지 않는다. */
+    public void hide(Player player) {
+        send(player, HIDDEN);
+    }
+
     /** 플러그인이 꺼질 때 모드 화면에 남은 사이드바를 지운다. */
     public void hideAll() {
-        byte[] hidden = encode(false, Component.empty(), new SidebarContent(null, List.of()));
         for (UUID id : List.copyOf(lastSent.keySet())) {
             Player player = Bukkit.getPlayer(id);
             if (player != null) {
-                send(player, hidden);
+                hide(player);
             }
         }
         lastSent.clear();

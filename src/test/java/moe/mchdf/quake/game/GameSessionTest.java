@@ -453,6 +453,25 @@ class GameSessionTest {
     }
 
     @Test
+    void playerWhoTurnedOffAutoRejoinStaysOutOfNextGame() {
+        Player first = player();
+        Player second = player();
+        Player third = player();
+        game.setAutoRejoin(player -> player != third);
+        game.join(first);
+        game.join(second);
+        game.join(third);
+        tickSeconds(30);
+        assertTrue(game.isRunning());
+        when(teams.constructed().getFirst().hasEmptyTeam()).thenReturn(true);
+        disconnect(first);
+        assertTrue(game.contains(second));
+        assertFalse(game.contains(third));
+        assertFalse(game.isQueued(third));
+        verifyLobbyArrival(third);
+    }
+
+    @Test
     void twoRemainingPlayersContinueCurrentGame() {
         Player first = player();
         Player second = player();

@@ -20,6 +20,8 @@ import moe.mchdf.quake.mod.ModSettingsScreen;
 import moe.mchdf.quake.mod.ModSidebar;
 import moe.mchdf.quake.scoreboard.PlayerBoards;
 import moe.mchdf.quake.scoreboard.ServerSidebar;
+import moe.mchdf.quake.settings.PlayerSettingsRepository;
+import moe.mchdf.quake.settings.PlayerSettingsService;
 import moe.mchdf.quake.world.GameWorld;
 import moe.mchdf.quake.world.GameWorldListener;
 import moe.mchdf.quake.world.LobbyArrival;
@@ -42,6 +44,10 @@ public final class Quake extends JavaPlugin {
     @Override
     public void onEnable() {
         database = new DatabaseManager(this);
+        PlayerSettingsService playerSettings = new PlayerSettingsService(
+                new PlayerSettingsRepository(database), getLogger());
+        getServer().getPluginManager().registerEvents(playerSettings, this);
+        getServer().getOnlinePlayers().forEach(playerSettings::load);
         gameWorld = new GameWorld(this, new GameWorldRepository(database));
         getServer().getPluginManager().registerEvents(new GameWorldListener(gameWorld), this);
         gameWorld.loadAll();
@@ -52,6 +58,7 @@ public final class Quake extends JavaPlugin {
         playerBoards = new PlayerBoards();
         getServer().getPluginManager().registerEvents(playerBoards, this);
         game = new GameSession(this, lobbyItems, gameWorld, lobbyArrival, playerBoards);
+        game.setAutoRejoin(player -> playerSettings.get(player).autoRejoin());
         game.addListener(new GameChatNotifier());
         modHandshake = new ModHandshake(this);
         modHandshake.register();
@@ -62,11 +69,13 @@ public final class Quake extends JavaPlugin {
         game.addListener(modHitMarker);
         ModSettingsScreen modSettingsScreen = new ModSettingsScreen(this, modHandshake);
         modSettingsScreen.register();
-        SettingsMenu settingsMenu = new SettingsMenu(modSettingsScreen);
+        SettingsMenu settingsMenu = new SettingsMenu(modSettingsScreen, playerSettings);
         ServerSidebar.addDefaults(getConfig());
         saveConfig();
-        ServerSidebar sidebar = new ServerSidebar(game, playerBoards, modSidebar, getConfig());
+        ServerSidebar sidebar = new ServerSidebar(game, playerBoards, modSidebar, getConfig(),
+                player -> playerSettings.get(player).sidebar());
         modHandshake.addAcceptListener(sidebar::onModAccepted);
+        playerSettings.addChangeListener(sidebar::onSettingsChanged);
         game.addListener(sidebar);
         getServer().getPluginManager().registerEvents(sidebar, this);
         sidebar.start(this);
