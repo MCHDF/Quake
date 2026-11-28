@@ -6,7 +6,7 @@ package moe.mchdf.quake.mod;
  */
 public final class ModProtocol {
     /** 패킷 형식이 바뀌면 모드와 함께 올립니다. */
-    public static final int VERSION = 4;
+    public static final int VERSION = 5;
 
     /** 핸드셰이크 채널. 클라 → 서버: int 모드 버전 / 서버 → 클라: int 서버 버전, boolean 수락 여부. */
     public static final String HANDSHAKE_CHANNEL = "quake:handshake";
@@ -22,6 +22,12 @@ public final class ModProtocol {
 
     /** 설정 화면 열기 채널. 서버 → 클라: 내용 없음. 받으면 모드 전용 설정 화면을 엽니다. */
     public static final String OPEN_SETTINGS_CHANNEL = "quake:open_settings";
+
+    /**
+     * 플레이어 설정 채널. 서버 → 클라: 저장된 설정 전체. 클라 → 서버: 바꾼 항목 하나.
+     * 형식은 {@link ModPlayerSettings}를 봅니다. 값은 서버 DB에 저장하고 모드는 보여 주고 바꾸기만 합니다.
+     */
+    public static final String PLAYER_SETTINGS_CHANNEL = "quake:player_settings";
 
     private ModProtocol() {
     }
